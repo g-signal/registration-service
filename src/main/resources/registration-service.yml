@@ -1,4 +1,5 @@
 gcp: # env = gcp & env = cli, BigtableDataClientFactory
+  key-file-path: # 授权文件路径
   project-id:
   bigtable:
     instance-id:
@@ -77,7 +78,7 @@ messagebird: #MessageBirdClientConfiguration, 短信渠道
 
 
 
-twilio: #短信渠道
+twilio: #短信渠道 #TwilioConfiguration
   account-sid:
   api-key-sid:
   api-key-secret:
