@@ -1,0 +1,251 @@
+gcp: # env = gcp & env = cli, BigtableDataClientFactory
+  project-id:
+  bigtable:
+    instance-id:
+
+analytics:
+  bigtable:
+    table-id:
+    column-family-name:
+  pubsub: # env = gcp
+    analyzed-attempts:
+      topic:
+    completed-attempts:
+      topic:
+  infobip: # env = analytics
+    sms:
+      default-price-currency: USD #String,default USD
+      page-size: 10 #int
+      analysis-interval: 4h #String,default 4h
+  messagebird: # env = analytics
+    sms:
+      pricing-refresh-interval: 4h  #String,default 4h
+      analysis-interval: 4h  #String,default 4h
+    voice:
+      analysis-interval: 4h  #String,default 4h
+  twilio: # env = analytics
+    sms:
+      analysis-interval: 4h  #String,default 4h
+      price-estimate:
+        refresh-interval: 4h  #String,default 4h
+        nanpa-number-types:
+          - SHORTCODE
+          - LOCAL
+          - MOBILE
+        default-number-types:
+          - TOLLFREE
+        regional-number-types:
+          US:
+            - LOCAL
+            - TOLLFREE
+          CA:
+            - SHORTCODE
+    verify:
+      analysis-interval: 5m #String,default 5m
+      analysis-initial-delay: 5m #String,default 5m
+      fee-amount: 0.05 # BigDecimal,default 0.05
+      fee-currency: USD # String,default USD
+    voice:
+      analysis-interval: 4h  #String,default 4h
+
+
+
+infobip: # InfobipClientConfiguration, 短信渠道
+  api-key:
+  base-url:
+  default-sender-id: #InfobipSenderConfiguration
+  sender-ids-by-region: #map,InfobipSenderConfiguration
+  sms:
+    session-ttl: PT10M # InfobipSmsConfiguration, Duration, default PT10M
+    prices:
+      bigtable: #BigtableInfobipDefaultSmsPricesRepositoryConfiguration
+        table-id:
+        column-family-name:
+
+
+
+messagebird: #MessageBirdClientConfiguration, 短信渠道
+  access-key: # String
+  default-sender-id: # MessageBirdSenderConfiguration
+  sender-ids-by-region: # map,MessageBirdSenderConfiguration
+  sms:
+    session-ttl: PT10M # MessageBirdSmsConfiguration, Duration, default PT10M
+  voice: #MessageBirdVoiceConfiguration
+    message-repeat-count: 3 # int ,default 3
+    session-ttl: PT10M # Duration, default PT10M
+    supported-languages: #list<String>,有默认值
+
+
+
+twilio: #短信渠道
+  account-sid:
+  api-key-sid:
+  api-key-secret:
+  min-retry-wait: 100ms # Duration, default 100ms
+  max-retries: 5 # int, default 5
+  messaging: #TwilioMessagingConfiguration
+    nanpa-messaging-service-sid: # String
+    global-messaging-service-sid: # String
+    session-ttl: PT10M # Duration, default PT10M
+  voice: #TwilioVoiceConfiguration
+    phone-numbers: # list<string>
+      - 121
+      - 233
+    cdn-uri: # URI， 语音文件的存储地址
+    supported-languages: #list<String>,有默认值
+  verify: # TwilioVerifyConfiguration
+    service-sid: # String
+    service-friendly-name: # String
+    android-app-hash: # String
+    custom-template-sid: # String
+    custom-template-supported-languages:  #list<String>, 默认空
+    supported-languages:  #list<String>,有默认值
+
+stats:
+  bigquery: #VerificationStatsConfiguration
+    window-size: P1D # Duration, default P1D
+    table-name: # String
+
+cost:
+  bigquery: #BigQueryCostProviderConfiguration
+    completed-attempts-table-name: # String
+    analyzed-attempts-table-name: # String
+    window-size: P1D # Duration,default P1D
+  fixed: #FixedCostConfiguration
+    strategy1:
+      transport: SMS
+      regions:
+        region1:
+          providerA: 123456  # $0.123456
+          providerB: 2000000  # $2.000000
+        region2:
+          providerC: 150000   # $0.150000
+          providerD: 500000   # $0.500000
+    strategy2:
+      transport: VOICE
+      regions:
+        region3:
+          providerE: 300000   # $0.300000
+        region4:
+          providerF: 1000000  # $1.000000
+
+
+verification:
+  sms: #VerificationSmsConfiguration
+    android-app-hash: # String
+    supported-languages: # List<String>, 代码中有默认值
+    message-variants-by-region: #map, default Collections.emptyMap()
+  voice: #VerificationVoiceConfiguration
+    supported-languages: # List<String>, 代码中有默认值
+
+fictitious-numbers:
+  firestore: #FirestoreFictitiousNumberVerificationCodeRepositoryConfiguration
+    collection-name: # String
+    expiration-field-name: # String
+
+prescribed-verification-codes:
+  firestore: #FirestorePrescribedVerificationCodeRepositoryConfiguration
+    collection-name: # String
+
+session-repository:
+  bigtable: # BigtableSessionRepositoryConfiguration
+    table-name:
+    column-family-name:
+    remove-expired-sessions-interval: 10s #/string, timer,Scheduled
+
+rate-limits:
+  check-verification-code:
+    delays: # list<Duration>,CheckVerificationCodeRateLimiter
+      - 0s
+      - 0s
+      - 1m
+      - 2m
+  send-sms-verification-code:
+    delays:  # list<Duration>,SendSmsVerificationCodeRateLimiter
+      - 1m
+      - 2m
+      - 5m
+      - 10m
+  send-voice-verification-code:
+    delay-after-first-sms: 1m # Duration ,SendVoiceVerificationCodeRateLimiter
+    delays: # list<Duration>,SendVoiceVerificationCodeRateLimiter
+      - 1m
+      - 5m
+  leaky-bucket:
+    limiter1:
+      name: "API Rate Limiter"
+      maxCapacity: 5
+      permitRegenerationPeriod: 288m
+      minDelay: 1m
+    limiter2:
+      name: "User Rate Limiter"
+      maxCapacity: 10
+      permitRegenerationPeriod: 144m
+      minDelay: 30s
+
+selection: # DynamicSenderSelectionStrategy
+  selector1:
+    transport: sms
+    fallbackSenders:
+      - sender1
+      - sender2
+    defaultWeights:
+      serviceA: 70
+      serviceB: 30
+    regionWeights:
+      region1:
+        serviceA: 50
+        serviceB: 50
+      region2:
+        serviceA: 100
+    regionOverrides:
+      region1: "ADAPTIVE_NAME"
+      region2: "serviceB"
+  selector2:
+    transport: voice
+    fallbackSenders:
+      - sender3
+      - sender4
+    defaultWeights:
+      serviceC: 60
+      serviceD: 40
+    regionWeights:
+      region3:
+        serviceC: 80
+        serviceD: 20
+    regionOverrides:
+      region3: "ADAPTIVE_NAME"
+
+
+adaptive: #AdaptiveStrategyConfiguration
+  strategy1:
+    transport: SMS
+    defaultChoices:
+      - sender1
+      - sender2
+    regionalChoices:
+      region1:
+        - sender3
+      region2:
+        - sender4
+    costCoefficient: 0.05
+
+  strategy2:
+    transport: VOICE
+    defaultChoices:
+      - sender5
+      - sender6
+    regionalChoices:
+      region3:
+        - sender7
+    costCoefficient: 0.10
+
+
+
+# env = gcp
+# env = analytics
+# env = cli
+
+
+
+
