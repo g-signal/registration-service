@@ -1,11 +1,10 @@
-gcp: # env = gcp & env = cli, BigtableDataClientFactory
-  key-file-path: # 授权文件路径
+gcp: # env = gcp or env = cli, BigtableDataClientFactory
   project-id:
   bigtable:
     instance-id:
 
 analytics:
-  bigtable:
+  bigtable: # 只有 env=analytics 才会真正的使用
     table-id:
     column-family-name:
   pubsub: # env = gcp
@@ -113,8 +112,7 @@ cost:
     analyzed-attempts-table-name: # String
     window-size: P1D # Duration,default P1D
   fixed: #FixedCostConfiguration
-    strategy1:
-      transport: SMS
+    SMS:
       regions:
         region1:
           providerA: 123456  # $0.123456
@@ -122,8 +120,7 @@ cost:
         region2:
           providerC: 150000   # $0.150000
           providerD: 500000   # $0.500000
-    strategy2:
-      transport: VOICE
+    VOICE:
       regions:
         region3:
           providerE: 300000   # $0.300000
@@ -139,12 +136,12 @@ verification:
   voice: #VerificationVoiceConfiguration
     supported-languages: # List<String>, 代码中有默认值
 
-fictitious-numbers:
+fictitious-numbers: # only for test
   firestore: #FirestoreFictitiousNumberVerificationCodeRepositoryConfiguration
     collection-name: # String
     expiration-field-name: # String
 
-prescribed-verification-codes:
+prescribed-verification-codes: # only for test
   firestore: #FirestorePrescribedVerificationCodeRepositoryConfiguration
     collection-name: # String
 
@@ -174,19 +171,16 @@ rate-limits:
       - 5m
   leaky-bucket:
     limiter1:
-      name: "API Rate Limiter"
       maxCapacity: 5
       permitRegenerationPeriod: 288m
       minDelay: 1m
     limiter2:
-      name: "User Rate Limiter"
       maxCapacity: 10
       permitRegenerationPeriod: 144m
       minDelay: 30s
 
 selection: # DynamicSenderSelectionStrategy
-  selector1:
-    transport: sms
+  sms:
     fallbackSenders:
       - sender1
       - sender2
@@ -202,8 +196,7 @@ selection: # DynamicSenderSelectionStrategy
     regionOverrides:
       region1: "ADAPTIVE_NAME"
       region2: "serviceB"
-  selector2:
-    transport: voice
+  voice:
     fallbackSenders:
       - sender3
       - sender4
@@ -219,8 +212,7 @@ selection: # DynamicSenderSelectionStrategy
 
 
 adaptive: #AdaptiveStrategyConfiguration
-  strategy1:
-    transport: SMS
+  SMS:
     defaultChoices:
       - sender1
       - sender2
@@ -231,8 +223,7 @@ adaptive: #AdaptiveStrategyConfiguration
         - sender4
     costCoefficient: 0.05
 
-  strategy2:
-    transport: VOICE
+  VOICE:
     defaultChoices:
       - sender5
       - sender6
@@ -241,6 +232,9 @@ adaptive: #AdaptiveStrategyConfiguration
         - sender7
     costCoefficient: 0.10
 
+redis: # StatefulRedisConnection must
+  uri: redis://localhost:6379
+  password: your_redis_password # 如果没有密码，可以省略此行
 
 
 # env = gcp
