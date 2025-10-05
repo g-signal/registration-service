@@ -107,7 +107,7 @@ public class WaySmsVerifySender implements VerificationCodeSender {
           map.put("apiAccount", this.configuration.apiAccount());
           map.put("secretKey", this.configuration.secretKey());
           map.put("mobiles", nationalNumber);
-          map.put("content", StringUtils.replace(configuration.template(), "${code}", tmpCode));
+          map.put("content", StringUtils.replace(configuration.template(), "code", tmpCode));
           try {
             return post(configuration.url(), map);
           } catch (IOException e) {
