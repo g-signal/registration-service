@@ -71,7 +71,7 @@ public class WaySmsVerifySender implements VerificationCodeSender {
 
   @Override
   public String getName() {
-    return null;
+    return SENDER_NAME;
   }
 
   @Override
