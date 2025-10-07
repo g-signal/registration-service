@@ -99,7 +99,7 @@ public class WaySmsVerifySender implements VerificationCodeSender {
     final Timer.Sample sample = Timer.start();
     final String endpointName = "verification." + messageTransport.name().toLowerCase() + ".create";
 
-    String tmpCode = RandomStringUtils.secure().nextNumeric(4);
+    String tmpCode = RandomStringUtils.secure().nextNumeric(this.configuration.codeLen());
     String nationalNumber = String.valueOf(phoneNumber.getNationalNumber());
 
     CompletableFuture<AttemptData> completableFuture = CompletableFuture.supplyAsync(() -> {
