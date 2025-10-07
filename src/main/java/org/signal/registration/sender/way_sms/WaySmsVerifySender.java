@@ -39,20 +39,19 @@ public class WaySmsVerifySender implements VerificationCodeSender {
   private final MeterRegistry meterRegistry;
   private final ApiClientInstrumenter apiClientInstrumenter;
   private final WaySmsMessagingConfiguration configuration;
-  private final StatefulRedisConnection<String, String> connection;
   private final Duration minRetryWait;
   private final int maxRetries;
+
+  private Map<String, String>  codeMap = new HashMap<>();
 
   public WaySmsVerifySender(final MeterRegistry meterRegistry,
       final ApiClientInstrumenter apiClientInstrumenter,
       final WaySmsMessagingConfiguration configuration,
-      final StatefulRedisConnection<String, String> connection,
       final @Value("${aliyun.min-retry-wait:100ms}") Duration minRetryWait,
       final @Value("${aliyun.max-retries:5}") int maxRetries) {
     this.meterRegistry = meterRegistry;
     this.apiClientInstrumenter = apiClientInstrumenter;
     this.configuration = configuration;
-    this.connection = connection;
     this.minRetryWait = minRetryWait;
     this.maxRetries = maxRetries;
   }
@@ -130,7 +129,8 @@ public class WaySmsVerifySender implements VerificationCodeSender {
           WaySmsRes waySmsRes = gson.fromJson(sendSmsResponse, WaySmsRes.class);
           if (throwable == null && waySmsRes.getStatus() == 0) {
             SetArgs setArgs = SetArgs.Builder.ex(getAttemptTtl());
-            connection.sync().set(redis_key + waySmsRes.getData(), tmpCode, setArgs);
+            codeMap.put(redis_key + waySmsRes.getData(),tmpCode );
+            //connection.sync().set(redis_key + waySmsRes.getData(), tmpCode, setArgs);
             return new AttemptData(Optional.ofNullable(waySmsRes.getData()),
                 waySmsRes.getData().getBytes(StandardCharsets.UTF_8));
           }
@@ -157,8 +157,8 @@ public class WaySmsVerifySender implements VerificationCodeSender {
   public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] senderData) {
     String requestId = new String(senderData, StandardCharsets.UTF_8);
 
-    String tmpCode = connection.sync().get(redis_key + requestId);
-
+    //String tmpCode = connection.sync().get(redis_key + requestId);
+    String tmpCode = codeMap.get(redis_key + requestId);
     return CompletableFuture.completedFuture(StringUtils.equals(verificationCode, tmpCode));
   }
 
