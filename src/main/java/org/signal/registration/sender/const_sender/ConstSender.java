@@ -44,6 +44,15 @@ public class ConstSender implements VerificationCodeSender {
     logger.info("init:"+this.getName());
   }
 
+  public boolean hasNumber(Phonenumber.PhoneNumber p1){
+    return this.map.get(p1)!=null;
+  }
+
+  public boolean hasRequest(final byte[] senderData){
+    String requestId = new String(senderData, StandardCharsets.UTF_8);
+    return codeMap.get(requestId)!=null;
+  }
+
   @Override
   public String getName() {
     return SENDER_NAME;
