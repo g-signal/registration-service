@@ -36,7 +36,6 @@ import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderInvalidParametersException;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeSender;
-import org.signal.registration.sender.const_sender.ConstSender;
 import org.signal.registration.sender.twilio.ApiExceptions;
 import org.signal.registration.util.CompletionExceptions;
 import org.slf4j.Logger;
@@ -61,8 +60,6 @@ public class TwilioVerifySender implements VerificationCodeSender {
   private final ApiClientInstrumenter apiClientInstrumenter;
   private final Duration minRetryWait;
   private final int maxRetries;
-
-  private ConstSender constSender;
 
 
   private static final String INVALID_PARAM_NAME = MetricsUtil.name(TwilioVerifySender.class, "invalidParam");
@@ -122,9 +119,6 @@ public class TwilioVerifySender implements VerificationCodeSender {
                                                              final List<Locale.LanguageRange> languageRanges,
                                                              final ClientType clientType) throws UnsupportedMessageTransportException {
 
-      if(constSender.hasNumber(phoneNumber)){
-        return constSender.sendVerificationCode(messageTransport,phoneNumber, languageRanges, clientType);
-      }
     final Verification.Channel channel = CHANNELS_BY_TRANSPORT.get(messageTransport);
 
     if (channel == null) {
@@ -201,12 +195,6 @@ public class TwilioVerifySender implements VerificationCodeSender {
 
   @Override
   public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] senderData) {
-    try{
-      if(constSender.hasRequest( senderData)){
-        return constSender.checkVerificationCode(verificationCode, senderData);
-      }
-    }catch (Exception e){}
-
     try {
       final String verificationSid = TwilioVerifySessionData.parseFrom(senderData).getVerificationSid();
 
