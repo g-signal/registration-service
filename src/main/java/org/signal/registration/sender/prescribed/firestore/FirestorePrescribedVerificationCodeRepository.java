@@ -51,7 +51,7 @@ class FirestorePrescribedVerificationCodeRepository implements PrescribedVerific
   public FirestorePrescribedVerificationCodeRepository(final Firestore firestore,
       @Named(TaskExecutors.IO) final Executor executor,
       final FirestorePrescribedVerificationCodeRepositoryConfiguration configuration, final MeterRegistry meterRegistry) {
-
+    logger.info("FirestorePrescribedVerificationCodeRepository init");
     this.firestore = firestore;
     this.executor = executor;
     this.configuration = configuration;
@@ -61,6 +61,8 @@ class FirestorePrescribedVerificationCodeRepository implements PrescribedVerific
 
   @Override
   public CompletableFuture<Map<Phonenumber.PhoneNumber, String>> getVerificationCodes() {
+    logger.info("FirestorePrescribedVerificationCodeRepository getVerificationCodes");
+
     final Timer.Sample sample = Timer.start();
 
     return GoogleApiUtil.toCompletableFuture(firestore.collection(configuration.getCollectionName()).get(), executor)
@@ -75,6 +77,10 @@ class FirestorePrescribedVerificationCodeRepository implements PrescribedVerific
 
               final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(e164, null);
               final String verificationCode = documentSnapshot.getString(VERIFICATION_CODE_KEY);
+
+              logger.info("FirestorePrescribedVerificationCodeRepository phoneNumber:"+PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164));
+              logger.info("FirestorePrescribedVerificationCodeRepository verificationCode:"+verificationCode);
+
 
               if (StringUtils.isNotBlank(verificationCode)) {
                 verificationCodes.put(phoneNumber, verificationCode);

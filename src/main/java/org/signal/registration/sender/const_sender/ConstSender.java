@@ -33,8 +33,13 @@ public class ConstSender implements VerificationCodeSender {
   private Map<String, String> codeMap = new HashMap<>();
 
   public ConstSender() throws NumberParseException {
-    Phonenumber.PhoneNumber p1 = PhoneNumberUtil.getInstance().parse("85211111111", null);
+    //Phonenumber.PhoneNumber p1 = PhoneNumberUtil.getInstance().parse("85211111111", null);
+    Phonenumber.PhoneNumber p1 = new Phonenumber.PhoneNumber();
+    p1.setCountryCode(852);
+    p1.setNationalNumber(11111111);
     map.put(p1, "123456");
+
+    logger.info("const:" + PhoneNumberUtil.getInstance().format(p1, PhoneNumberUtil.PhoneNumberFormat.E164));
 
     logger.info("init:"+this.getName());
   }

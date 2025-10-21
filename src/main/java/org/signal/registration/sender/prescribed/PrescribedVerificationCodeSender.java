@@ -45,6 +45,7 @@ public class PrescribedVerificationCodeSender implements VerificationCodeSender 
 
   public PrescribedVerificationCodeSender(final PrescribedVerificationCodeRepository verificationCodeRepository) {
     this.verificationCodeRepository = verificationCodeRepository;
+    logger.info("PrescribedVerificationCodeSender init");
   }
 
   @Scheduled(fixedRate = "10s")
@@ -74,6 +75,7 @@ public class PrescribedVerificationCodeSender implements VerificationCodeSender 
       final List<Locale.LanguageRange> languageRanges) {
 
     return prescribedVerificationCodes.get().containsKey(phoneNumber);
+
   }
 
   @Override
