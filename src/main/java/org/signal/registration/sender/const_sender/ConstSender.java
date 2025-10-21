@@ -20,11 +20,14 @@ import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Singleton
 public class ConstSender implements VerificationCodeSender {
 
   public static final String SENDER_NAME = "const-verify";
+  private static final Logger logger = LoggerFactory.getLogger(ConstSender.class);
 
   Map<Phonenumber.PhoneNumber, String> map = new HashMap<>();
   private Map<String, String> codeMap = new HashMap<>();
@@ -32,6 +35,8 @@ public class ConstSender implements VerificationCodeSender {
   public ConstSender() throws NumberParseException {
     Phonenumber.PhoneNumber p1 = PhoneNumberUtil.getInstance().parse("85211111111", null);
     map.put(p1, "123456");
+
+    logger.info("init:"+this.getName());
   }
 
   @Override
