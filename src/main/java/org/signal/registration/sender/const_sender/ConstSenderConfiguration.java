@@ -9,6 +9,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 @Context
-@ConfigurationProperties("const-verify.phone-numbers")
+@ConfigurationProperties("const-verify")
 record ConstSenderConfiguration(@Nullable List<@NotBlank String> phoneNumbers) {
 }
