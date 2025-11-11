@@ -21,8 +21,8 @@
   <properties>
     <packaging>jar</packaging>
 
-    <jdk.version>24</jdk.version>
-    <release.version>24</release.version>
+    <jdk.version>25</jdk.version>
+    <release.version>25</release.version>
     <exec.mainClass>org.signal.registration.Application</exec.mainClass>
 
     <!-- See https://console.cloud.google.com/artifacts/docker/google.com:cloudsdktool/us/gcr.io/google-cloud-cli -->
@@ -36,8 +36,9 @@
     is incompatible with google-cloud libraries, and a version that includes netty 4.2 is not currently available -->
     <grpc.version>1.71.0</grpc.version>
 
-    <!-- eclipse-temurin:24.0.2_12-jre-noble (note: always use the multi-arch manifest *LIST* here); see https://hub.docker.com/_/eclipse-temurin -->
+    <!-- eclipse-temurin:25.0.1_8-jre-noble (note: always use the multi-arch manifest *LIST* here); see https://hub.docker.com/_/eclipse-temurin -->
     <docker.image.sha256>85ecfc9bbb42af046d2bacbf1219d2005be4840cbfa16c2e6fd910d9ccfec95b</docker.image.sha256>
+    <docker.image.sha256>2a587c44e7497e1d750747417ff67ec52caa09a71b1534720fd2983b1f4f861c</docker.image.sha256>
   </properties>
 
   <repositories>
