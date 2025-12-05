@@ -30,14 +30,12 @@ import org.signal.registration.analytics.AttemptAnalyzedEvent;
 import org.signal.registration.analytics.AttemptPendingAnalysis;
 import org.signal.registration.analytics.AttemptPendingAnalysisRepository;
 import org.signal.registration.analytics.Money;
-import org.signal.registration.cli.bigtable.BigtableInfobipDefaultSmsPricesRepository;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.infobip.classic.InfobipSmsSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 
 @Singleton
@@ -47,10 +45,10 @@ class InfobipSmsAttemptAnalyzer {
   private final Clock clock;
 
   private final SmsApi infobipSmsApiClient;
-  private final BigtableInfobipDefaultSmsPricesRepository defaultSmsPricesRepository;
-  private final Currency defaultPriceCurrency;
+  private final InfobipSmsPriceEstimator infobipSmsPriceEstimator;
   private final MeterRegistry meterRegistry;
   private final int pageSize;
+
   private static final Logger logger = LoggerFactory.getLogger(InfobipSmsAttemptAnalyzer.class);
   private static final int MIN_MCC_MNC_LENGTH = 5;
   private static final int MAX_RETRIES = 10;
@@ -64,8 +62,7 @@ class InfobipSmsAttemptAnalyzer {
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
       final Clock clock,
       final SmsApi infobipSmsApiClient,
-      final BigtableInfobipDefaultSmsPricesRepository defaultSmsPricesRepository,
-      @Value("${analytics.infobip.sms.default-price-currency:USD}") final String defaultPriceCurrency,
+      final InfobipSmsPriceEstimator infobipSmsPriceEstimator,
       final MeterRegistry meterRegistry,
       @Value("${analytics.infobip.sms.page-size}") final int pageSize) {
 
@@ -73,8 +70,7 @@ class InfobipSmsAttemptAnalyzer {
     this.attemptAnalyzedEventPublisher = attemptAnalyzedEventPublisher;
     this.clock = clock;
     this.infobipSmsApiClient = infobipSmsApiClient;
-    this.defaultSmsPricesRepository = defaultSmsPricesRepository;
-    this.defaultPriceCurrency = Currency.getInstance(defaultPriceCurrency);
+    this.infobipSmsPriceEstimator = infobipSmsPriceEstimator;
     this.meterRegistry = meterRegistry;
     this.pageSize = pageSize;
   }
@@ -94,17 +90,16 @@ class InfobipSmsAttemptAnalyzer {
                   if (smsLogsByRemoteId.containsKey(attemptPendingAnalysis.getRemoteId())) {
                     final SmsLog smsLog = smsLogsByRemoteId.get(attemptPendingAnalysis.getRemoteId());
                     final MccMnc mccMnc = MccMnc.fromString(smsLog.getMccMnc());
-                    final Optional<Money> maybeEstimatedPriceByMccMnc = estimatePrice(mccMnc.toString());
 
                     attemptAnalysis = new AttemptAnalysis(
                         extractPrice(smsLog),
-                        maybeEstimatedPriceByMccMnc.or(() -> estimatePrice(attemptPendingAnalysis.getRegion())),
+                        infobipSmsPriceEstimator.estimatePrice(attemptPendingAnalysis, mccMnc.mcc(), mccMnc.mnc()),
                         Optional.ofNullable(mccMnc.mcc),
                         Optional.ofNullable(mccMnc.mnc));
                   } else {
                     attemptAnalysis = new AttemptAnalysis(
                         Optional.empty(),
-                        estimatePrice(attemptPendingAnalysis.getRegion()),
+                        infobipSmsPriceEstimator.estimatePrice(attemptPendingAnalysis, null, null),
                         Optional.empty(),
                         Optional.empty());
                   }
@@ -161,11 +156,6 @@ class InfobipSmsAttemptAnalyzer {
         : Optional.empty();
   }
 
-  private Optional<Money> estimatePrice(final String key) {
-    return defaultSmsPricesRepository.get(key)
-        .map(price -> new Money(price, defaultPriceCurrency));
-  }
-
   @VisibleForTesting
   record MccMnc(String mcc, String mnc) {
     private static final MccMnc EMPTY = new MccMnc(null, null);
@@ -183,10 +173,6 @@ class InfobipSmsAttemptAnalyzer {
 
       // Mobile country code is always 3 digits: https://en.wikipedia.org/wiki/Mobile_country_code
       return new MccMnc(mccMnc.substring(0, 3), mccMnc.substring(3));
-    }
-
-    public String toString() {
-      return mcc + mnc;
     }
   }
 }
