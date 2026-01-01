@@ -1,54 +1,53 @@
-package org.signal.registration.sender.way_sms;
+package org.signal.registration.sender.aliyun;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.lettuce.core.SetArgs;
-import io.lettuce.core.api.StatefulRedisConnection;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import io.micronaut.context.annotation.Value;
 import jakarta.inject.Singleton;
-import okhttp3.*;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.metrics.MetricsUtil;
-import org.signal.registration.sender.*;
-import org.signal.registration.sender.twilio.ApiExceptions;
+import org.signal.registration.sender.ApiClientInstrumenter;
+import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.util.CompletionExceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.signal.registration.sender.*;
+import org.signal.registration.sender.twilio.ApiExceptions;
 
 @Singleton
-public class WaySmsVerifySender implements VerificationCodeSender {
+public class AliyunSmsVerifySender implements VerificationCodeSender {
 
-  public static final String SENDER_NAME = "waysms-verify";
-  private static final Logger logger = LoggerFactory.getLogger(WaySmsVerifySender.class);
-  private static final String redis_key = "registration-service:waysms-verify:";
-  private static final String INVALID_PARAM_NAME = MetricsUtil.name(WaySmsVerifySender.class, "invalidParam");
+  public static final String SENDER_NAME = "aliyunsms-verify";
+  private static final Logger logger = LoggerFactory.getLogger(AliyunSmsVerifySender.class);
+  private static final String redis_key = "registration-service:aliyunsms-verify:";
+  private static final String INVALID_PARAM_NAME = MetricsUtil.name(AliyunSmsVerifySender.class, "invalidParam");
   private static ExecutorService executorService = null;
   private final MeterRegistry meterRegistry;
   private final ApiClientInstrumenter apiClientInstrumenter;
-  private final WaySmsMessagingConfiguration configuration;
+  private final AliyunSmsMessagingConfiguration configuration;
   private final Duration minRetryWait;
   private final int maxRetries;
 
   private Map<String, String>  codeMap = new HashMap<>();
 
-  public WaySmsVerifySender(final MeterRegistry meterRegistry,
-      final ApiClientInstrumenter apiClientInstrumenter,
-      final WaySmsMessagingConfiguration configuration,
-      final @Value("${waysms.min-retry-wait:100ms}") Duration minRetryWait,
-      final @Value("${waysms.max-retries:5}") int maxRetries) {
+  public AliyunSmsVerifySender(final MeterRegistry meterRegistry,
+                               final ApiClientInstrumenter apiClientInstrumenter,
+                               final AliyunSmsMessagingConfiguration configuration,
+                               final @Value("${aliyunsms.min-retry-wait:100ms}") Duration minRetryWait,
+                               final @Value("${aliyunsms.max-retries:5}") int maxRetries) {
     this.meterRegistry = meterRegistry;
     this.apiClientInstrumenter = apiClientInstrumenter;
     this.configuration = configuration;
@@ -58,7 +57,7 @@ public class WaySmsVerifySender implements VerificationCodeSender {
 
   public static ExecutorService getExecutorService() {
     if (executorService == null) {
-      synchronized (WaySmsVerifySender.class) {
+      synchronized (AliyunSmsVerifySender.class) {
         if (executorService == null) {
           executorService = Executors.newCachedThreadPool();
         }
@@ -102,17 +101,14 @@ public class WaySmsVerifySender implements VerificationCodeSender {
     String nationalNumber = String.valueOf(phoneNumber.getNationalNumber());
 
     CompletableFuture<AttemptData> completableFuture = CompletableFuture.supplyAsync(() -> {
-          HashMap<String, Object> map = new HashMap<>();
-          map.put("apiAccount", this.configuration.apiAccount());
-          map.put("secretKey", this.configuration.secretKey());
-          map.put("mobiles", nationalNumber);
-          map.put("content", StringUtils.replace(configuration.template(), "code", tmpCode));
-          try {
-            return post(configuration.url(), map);
-          } catch (IOException e) {
-            throw new RuntimeException(e);
-          }
-
+          return AliyunSmsUtil.sendCode(this.configuration.accessKeyId(),
+              this.configuration.accessSecret(),
+              this.configuration.templateCode(),
+              this.configuration.templateParamKey(),
+              this.configuration.signName(),
+              nationalNumber,
+              tmpCode
+          );
         }, getExecutorService())
         .toCompletableFuture()
         .whenComplete((sessionData, throwable) ->
@@ -126,13 +122,13 @@ public class WaySmsVerifySender implements VerificationCodeSender {
         .handle((sendSmsResponse, throwable) -> {
           //{"status":0,"message":"提交成功","data":"c47a4a49-fdba-41ab-8c56-6b773fe2350b","desc":null}
           Gson gson = new GsonBuilder().create();
-          WaySmsRes waySmsRes = gson.fromJson(sendSmsResponse, WaySmsRes.class);
-          if (throwable == null && waySmsRes.getStatus() == 0) {
+          String aliyunRequestId = sendSmsResponse;
+          if (throwable == null && aliyunRequestId !=null) {
             SetArgs setArgs = SetArgs.Builder.ex(getAttemptTtl());
-            codeMap.put(redis_key + waySmsRes.getData(),tmpCode );
+            codeMap.put(redis_key + aliyunRequestId,tmpCode );
             //connection.sync().set(redis_key + waySmsRes.getData(), tmpCode, setArgs);
-            return new AttemptData(Optional.ofNullable(waySmsRes.getData()),
-                waySmsRes.getData().getBytes(StandardCharsets.UTF_8));
+            return new AttemptData(Optional.ofNullable(aliyunRequestId),
+                aliyunRequestId.getBytes(StandardCharsets.UTF_8));
           }
 
           final Throwable exception = ApiExceptions.toSenderException(throwable);
@@ -160,31 +156,5 @@ public class WaySmsVerifySender implements VerificationCodeSender {
     //String tmpCode = connection.sync().get(redis_key + requestId);
     String tmpCode = codeMap.get(redis_key + requestId);
     return CompletableFuture.completedFuture(StringUtils.equals(verificationCode, tmpCode));
-  }
-
-  private String post(String url, HashMap<String, Object> map) throws IOException {
-    OkHttpClient client = new OkHttpClient();
-    // 创建一个MultipartBody.Builder对象
-    MultipartBody.Builder builder = new MultipartBody.Builder().setType(MultipartBody.FORM);
-    for (Map.Entry<String, Object> entry : map.entrySet()) {
-      // 添加文本字段
-      builder.addFormDataPart(entry.getKey(), entry.getValue().toString());
-    }
-
-    // 构建请求体
-    RequestBody requestBody = builder.build();
-
-    // 创建Request对象
-    Request request = new Request.Builder()
-        .url(url)
-        .post(requestBody)
-        .build();
-
-    // 发送请求并获取响应
-    try (Response response = client.newCall(request).execute()) {
-      // 返回响应体内容作为字符串
-      return response.body().string();
-    }
-
   }
 }
