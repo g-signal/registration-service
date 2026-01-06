@@ -24,9 +24,6 @@
     <jdk.version>21</jdk.version>
     <release.version>21</release.version>
     <exec.mainClass>org.signal.registration.Application</exec.mainClass>
-    <aliyun-java-sdk-dysmsapi.version>2.2.1</aliyun-java-sdk-dysmsapi.version>
-    <aliyun-java-sdk-core.version>4.5.16</aliyun-java-sdk-core.version>
-
 
     <!-- See https://console.cloud.google.com/artifacts/docker/google.com:cloudsdktool/us/gcr.io/google-cloud-cli -->
     <firestore.emulator.version>526.0.1-emulators</firestore.emulator.version>
@@ -73,18 +70,6 @@
   </dependencyManagement>
 
   <dependencies>
-    <!--aliyun-->
-    <dependency>
-      <groupId>com.aliyun</groupId>
-      <artifactId>aliyun-java-sdk-dysmsapi</artifactId>
-      <version>${aliyun-java-sdk-dysmsapi.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>com.aliyun</groupId>
-      <artifactId>aliyun-java-sdk-core</artifactId>
-      <version>${aliyun-java-sdk-core.version}</version>
-    </dependency>
-
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
