@@ -57,6 +57,8 @@ import org.signal.registration.util.ClientTypes;
 import org.signal.registration.util.CompletionExceptions;
 import org.signal.registration.util.MessageTransports;
 import org.signal.registration.util.UUIDUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 
 /**
@@ -65,6 +67,7 @@ import reactor.core.publisher.Mono;
  */
 @Singleton
 public class RegistrationService {
+  private static final Logger log = LoggerFactory.getLogger(RegistrationService.class);
 
   private final SenderSelectionStrategy senderSelectionStrategy;
   private final SessionRepository sessionRepository;
@@ -145,16 +148,19 @@ public class RegistrationService {
 
 
     //
-   // @Nullable Map<@NotBlank String, @NotBlank String> phoneNumberMap
+    // @Nullable Map<@NotBlank String, @NotBlank String> phoneNumberMap
     if(phoneNumberMapConfiguration.map()!=null){
       Set<String> keys = phoneNumberMapConfiguration.map().keySet();
       for(String key : keys){
+        String value = phoneNumberMapConfiguration.map().get(key);
+        log.info(key + "=" + value);
+
         String[] keySplit = key.split("_");
         Phonenumber.PhoneNumber keyPhonenumber = new Phonenumber.PhoneNumber();
         keyPhonenumber.setCountryCode(Integer.parseInt(keySplit[0]));
         keyPhonenumber.setNationalNumber(Long.parseLong(keySplit[1]));
 
-        String[] valueSplit = phoneNumberMapConfiguration.map().get(key).split("_");
+        String[] valueSplit = value.split("_");
         Phonenumber.PhoneNumber valuePhonenumber = new Phonenumber.PhoneNumber();
         valuePhonenumber.setCountryCode(Integer.parseInt(valueSplit[0]));
         valuePhonenumber.setNationalNumber(Long.parseLong(valueSplit[1]));
@@ -377,32 +383,32 @@ public class RegistrationService {
           .thenCompose(ignored -> checkVerificationCodePerNumberRateLimiter.checkRateLimit(getPhoneNumberFromSession(session)))
           .exceptionallyCompose(addSessionToRateLimitExceededExceptionIfNecessary(session))
           .thenCompose(ignored -> {
-        final RegistrationAttempt currentRegistrationAttempt =
-            session.getRegistrationAttempts(session.getRegistrationAttemptsCount() - 1);
+            final RegistrationAttempt currentRegistrationAttempt =
+                session.getRegistrationAttempts(session.getRegistrationAttemptsCount() - 1);
 
-        if (Instant.ofEpochMilli(currentRegistrationAttempt.getExpirationEpochMillis()).isBefore(clock.instant())) {
-          return CompletableFuture.failedFuture(new AttemptExpiredException());
-        }
+            if (Instant.ofEpochMilli(currentRegistrationAttempt.getExpirationEpochMillis()).isBefore(clock.instant())) {
+              return CompletableFuture.failedFuture(new AttemptExpiredException());
+            }
 
-        final VerificationCodeSender sender = sendersByName.get(currentRegistrationAttempt.getSenderName());
+            final VerificationCodeSender sender = sendersByName.get(currentRegistrationAttempt.getSenderName());
 
-        if (sender == null) {
-          throw new IllegalArgumentException("Unrecognized sender: " + currentRegistrationAttempt.getSenderName());
-        }
+            if (sender == null) {
+              throw new IllegalArgumentException("Unrecognized sender: " + currentRegistrationAttempt.getSenderName());
+            }
 
-        return sender.checkVerificationCode(verificationCode, currentRegistrationAttempt.getSenderData().toByteArray())
-            .exceptionally(throwable -> {
-              // The sender may view the submitted code as an illegal argument or may reject the attempt to check a
-              // code altogether. We can treat any case of "the sender got it, but said 'no'" the same way we would
-              // treat an accepted-but-incorrect code.
-              if (CompletionExceptions.unwrap(throwable) instanceof SenderRejectedRequestException) {
-                return false;
-              }
+            return sender.checkVerificationCode(verificationCode, currentRegistrationAttempt.getSenderData().toByteArray())
+                .exceptionally(throwable -> {
+                  // The sender may view the submitted code as an illegal argument or may reject the attempt to check a
+                  // code altogether. We can treat any case of "the sender got it, but said 'no'" the same way we would
+                  // treat an accepted-but-incorrect code.
+                  if (CompletionExceptions.unwrap(throwable) instanceof SenderRejectedRequestException) {
+                    return false;
+                  }
 
-              throw CompletionExceptions.wrap(throwable);
-            })
-            .thenCompose(verified -> recordCheckVerificationCodeAttempt(session, verified ? verificationCode : null));
-      });
+                  throw CompletionExceptions.wrap(throwable);
+                })
+                .thenCompose(verified -> recordCheckVerificationCodeAttempt(session, verified ? verificationCode : null));
+          });
     }
   }
 
@@ -535,9 +541,9 @@ public class RegistrationService {
       final boolean hasAttemptedSms = session.getRegistrationAttemptsList().stream().anyMatch(attempt ->
           attempt.getMessageTransport() == org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS) ||
           session.getRejectedTransportsList().contains(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS) ||
-              session.getFailedAttemptsList().stream().anyMatch(attempt ->
-                  attempt.getMessageTransport() == org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS
-                      && attempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD);
+          session.getFailedAttemptsList().stream().anyMatch(attempt ->
+              attempt.getMessageTransport() == org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS
+                  && attempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD);
 
       if (hasAttemptedSms) {
         nextVoiceCall = Mono.fromFuture(sendVoiceVerificationCodePerSessionRateLimiter.getTimeOfNextAction(session));
