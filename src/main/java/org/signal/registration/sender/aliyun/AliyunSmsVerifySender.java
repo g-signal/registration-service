@@ -38,6 +38,8 @@ public class AliyunSmsVerifySender implements VerificationCodeSender {
   private final MeterRegistry meterRegistry;
   private final ApiClientInstrumenter apiClientInstrumenter;
   private final AliyunSmsMessagingConfiguration configuration;
+  private final VerificationCodeGenerator verificationCodeGenerator;
+
   private final Duration minRetryWait;
   private final int maxRetries;
 
@@ -46,11 +48,12 @@ public class AliyunSmsVerifySender implements VerificationCodeSender {
   public AliyunSmsVerifySender(final MeterRegistry meterRegistry,
                                final ApiClientInstrumenter apiClientInstrumenter,
                                final AliyunSmsMessagingConfiguration configuration,
-                               final @Value("${aliyunsms.min-retry-wait:100ms}") Duration minRetryWait,
+      final VerificationCodeGenerator verificationCodeGenerator, final @Value("${aliyunsms.min-retry-wait:100ms}") Duration minRetryWait,
                                final @Value("${aliyunsms.max-retries:5}") int maxRetries) {
     this.meterRegistry = meterRegistry;
     this.apiClientInstrumenter = apiClientInstrumenter;
     this.configuration = configuration;
+    this.verificationCodeGenerator = verificationCodeGenerator;
     this.minRetryWait = minRetryWait;
     this.maxRetries = maxRetries;
   }
@@ -97,7 +100,7 @@ public class AliyunSmsVerifySender implements VerificationCodeSender {
     final Timer.Sample sample = Timer.start();
     final String endpointName = "verification." + messageTransport.name().toLowerCase() + ".create";
 
-    String tmpCode = RandomStringUtils.secure().nextNumeric(this.configuration.codeLen());
+    String tmpCode = verificationCodeGenerator.generateVerificationCode();
     String nationalNumber = String.valueOf(phoneNumber.getNationalNumber());
 
     CompletableFuture<AttemptData> completableFuture = CompletableFuture.supplyAsync(() -> {

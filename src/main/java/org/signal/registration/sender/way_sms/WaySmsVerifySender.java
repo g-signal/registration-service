@@ -5,7 +5,6 @@ import com.google.gson.GsonBuilder;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.lettuce.core.SetArgs;
-import io.lettuce.core.api.StatefulRedisConnection;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
@@ -39,6 +38,7 @@ public class WaySmsVerifySender implements VerificationCodeSender {
   private final MeterRegistry meterRegistry;
   private final ApiClientInstrumenter apiClientInstrumenter;
   private final WaySmsMessagingConfiguration configuration;
+  private final VerificationCodeGenerator verificationCodeGenerator;
   private final Duration minRetryWait;
   private final int maxRetries;
 
@@ -47,11 +47,13 @@ public class WaySmsVerifySender implements VerificationCodeSender {
   public WaySmsVerifySender(final MeterRegistry meterRegistry,
       final ApiClientInstrumenter apiClientInstrumenter,
       final WaySmsMessagingConfiguration configuration,
+      final VerificationCodeGenerator verificationCodeGenerator,
       final @Value("${waysms.min-retry-wait:100ms}") Duration minRetryWait,
       final @Value("${waysms.max-retries:5}") int maxRetries) {
     this.meterRegistry = meterRegistry;
     this.apiClientInstrumenter = apiClientInstrumenter;
     this.configuration = configuration;
+    this.verificationCodeGenerator = verificationCodeGenerator;
     this.minRetryWait = minRetryWait;
     this.maxRetries = maxRetries;
   }
@@ -98,7 +100,7 @@ public class WaySmsVerifySender implements VerificationCodeSender {
     final Timer.Sample sample = Timer.start();
     final String endpointName = "verification." + messageTransport.name().toLowerCase() + ".create";
 
-    String tmpCode = RandomStringUtils.secure().nextNumeric(this.configuration.codeLen());
+    String tmpCode = verificationCodeGenerator.generateVerificationCode();
     String nationalNumber = String.valueOf(phoneNumber.getNationalNumber());
 
     CompletableFuture<AttemptData> completableFuture = CompletableFuture.supplyAsync(() -> {

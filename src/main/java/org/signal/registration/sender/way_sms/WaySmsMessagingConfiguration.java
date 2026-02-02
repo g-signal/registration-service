@@ -17,8 +17,6 @@ record WaySmsMessagingConfiguration(@NotBlank String url,
                                     String secretKey,
                                     @NotBlank
                                     String template,
-                                    @NotNull
-                                    Integer codeLen,
                                     @Nullable
                                     List<@NotBlank String> supportedLanguages) {
 

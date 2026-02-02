@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,8 +32,11 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import jakarta.validation.constraints.NotBlank;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.signal.registration.phonemap.PhoneNumberMap;
+import org.signal.registration.phonemap.PhoneNumberMapConfiguration;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.ratelimit.RateLimiter;
 import org.signal.registration.rpc.RegistrationSessionMetadata;
@@ -54,6 +58,8 @@ import org.signal.registration.util.ClientTypes;
 import org.signal.registration.util.CompletionExceptions;
 import org.signal.registration.util.MessageTransports;
 import org.signal.registration.util.UUIDUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 
 /**
@@ -62,6 +68,7 @@ import reactor.core.publisher.Mono;
  */
 @Singleton
 public class RegistrationService {
+  private static final Logger log = LoggerFactory.getLogger(RegistrationService.class);
 
   private final SenderSelectionStrategy senderSelectionStrategy;
   private final SessionRepository sessionRepository;
@@ -73,11 +80,14 @@ public class RegistrationService {
   private final RateLimiter<Phonenumber.PhoneNumber> sendVoiceVerificationCodePerNumberRateLimiter;
   private final RateLimiter<Phonenumber.PhoneNumber> checkVerificationCodePerNumberRateLimiter;
   private final Clock clock;
+  private final PhoneNumberMapConfiguration phoneNumberMapConfiguration;
 
   private final Map<String, VerificationCodeSender> sendersByName;
 
   @VisibleForTesting
   static final Duration SESSION_TTL_AFTER_LAST_ACTION = Duration.ofMinutes(10);
+
+  private Map<Phonenumber.PhoneNumber, Phonenumber.PhoneNumber> phoneNumberPhoneNumberMap = new HashMap<>();
 
 
   @VisibleForTesting
@@ -119,7 +129,8 @@ public class RegistrationService {
       @Named("send-voice-verification-code-per-number") final RateLimiter<Phonenumber.PhoneNumber> sendVoiceVerificationCodePerNumberRateLimiter,
       @Named("check-verification-code-per-number") final RateLimiter<Phonenumber.PhoneNumber> checkVerificationCodePerNumberRateLimiter,
       final List<VerificationCodeSender> verificationCodeSenders,
-      final Clock clock) {
+      final Clock clock,
+      final PhoneNumberMapConfiguration phoneNumberMapConfiguration) {
 
     this.senderSelectionStrategy = senderSelectionStrategy;
     this.sessionRepository = sessionRepository;
@@ -131,9 +142,33 @@ public class RegistrationService {
     this.sendVoiceVerificationCodePerNumberRateLimiter = sendVoiceVerificationCodePerNumberRateLimiter;
     this.checkVerificationCodePerNumberRateLimiter = checkVerificationCodePerNumberRateLimiter;
     this.clock = clock;
+    this.phoneNumberMapConfiguration = phoneNumberMapConfiguration;
 
     this.sendersByName = verificationCodeSenders.stream()
         .collect(Collectors.toMap(VerificationCodeSender::getName, Function.identity()));
+
+
+    //
+    // @Nullable Map<@NotBlank String, @NotBlank String> phoneNumberMap
+    if(phoneNumberMapConfiguration.mappings()!=null){
+      for(PhoneNumberMap phoneNumberMap : phoneNumberMapConfiguration.mappings()){
+        String key = phoneNumberMap.from();
+        String value = phoneNumberMap.to();
+        log.info(key + "=" + value);
+
+        String[] keySplit = key.split("_");
+        Phonenumber.PhoneNumber keyPhonenumber = new Phonenumber.PhoneNumber();
+        keyPhonenumber.setCountryCode(Integer.parseInt(keySplit[0]));
+        keyPhonenumber.setNationalNumber(Long.parseLong(keySplit[1]));
+
+        String[] valueSplit = value.split("_");
+        Phonenumber.PhoneNumber valuePhonenumber = new Phonenumber.PhoneNumber();
+        valuePhonenumber.setCountryCode(Integer.parseInt(valueSplit[0]));
+        valuePhonenumber.setNationalNumber(Long.parseLong(valueSplit[1]));
+
+        phoneNumberPhoneNumberMap.put(keyPhonenumber, valuePhonenumber);
+      }
+    }
   }
 
   /**
@@ -218,7 +253,11 @@ public class RegistrationService {
               .map(FailedSendAttempt::getSenderName)
               .forEach(previouslyFailedSenders::add);
 
-          final Phonenumber.PhoneNumber phoneNumberFromSession = getPhoneNumberFromSession(session);
+          Phonenumber.PhoneNumber phoneNumberFromSession = getPhoneNumberFromSession(session);
+          if(this.phoneNumberPhoneNumberMap.get(phoneNumberFromSession)!=null){
+            phoneNumberFromSession = this.phoneNumberPhoneNumberMap.get(phoneNumberFromSession);
+          }
+
           final SenderSelection selection = senderSelectionStrategy.chooseVerificationCodeSender(
               messageTransport, phoneNumberFromSession, languageRanges, clientType, senderName,
               previouslyFailedSenders);
@@ -345,32 +384,32 @@ public class RegistrationService {
           .thenCompose(ignored -> checkVerificationCodePerNumberRateLimiter.checkRateLimit(getPhoneNumberFromSession(session)))
           .exceptionallyCompose(addSessionToRateLimitExceededExceptionIfNecessary(session))
           .thenCompose(ignored -> {
-        final RegistrationAttempt currentRegistrationAttempt =
-            session.getRegistrationAttempts(session.getRegistrationAttemptsCount() - 1);
+            final RegistrationAttempt currentRegistrationAttempt =
+                session.getRegistrationAttempts(session.getRegistrationAttemptsCount() - 1);
 
-        if (Instant.ofEpochMilli(currentRegistrationAttempt.getExpirationEpochMillis()).isBefore(clock.instant())) {
-          return CompletableFuture.failedFuture(new AttemptExpiredException());
-        }
+            if (Instant.ofEpochMilli(currentRegistrationAttempt.getExpirationEpochMillis()).isBefore(clock.instant())) {
+              return CompletableFuture.failedFuture(new AttemptExpiredException());
+            }
 
-        final VerificationCodeSender sender = sendersByName.get(currentRegistrationAttempt.getSenderName());
+            final VerificationCodeSender sender = sendersByName.get(currentRegistrationAttempt.getSenderName());
 
-        if (sender == null) {
-          throw new IllegalArgumentException("Unrecognized sender: " + currentRegistrationAttempt.getSenderName());
-        }
+            if (sender == null) {
+              throw new IllegalArgumentException("Unrecognized sender: " + currentRegistrationAttempt.getSenderName());
+            }
 
-        return sender.checkVerificationCode(verificationCode, currentRegistrationAttempt.getSenderData().toByteArray())
-            .exceptionally(throwable -> {
-              // The sender may view the submitted code as an illegal argument or may reject the attempt to check a
-              // code altogether. We can treat any case of "the sender got it, but said 'no'" the same way we would
-              // treat an accepted-but-incorrect code.
-              if (CompletionExceptions.unwrap(throwable) instanceof SenderRejectedRequestException) {
-                return false;
-              }
+            return sender.checkVerificationCode(verificationCode, currentRegistrationAttempt.getSenderData().toByteArray())
+                .exceptionally(throwable -> {
+                  // The sender may view the submitted code as an illegal argument or may reject the attempt to check a
+                  // code altogether. We can treat any case of "the sender got it, but said 'no'" the same way we would
+                  // treat an accepted-but-incorrect code.
+                  if (CompletionExceptions.unwrap(throwable) instanceof SenderRejectedRequestException) {
+                    return false;
+                  }
 
-              throw CompletionExceptions.wrap(throwable);
-            })
-            .thenCompose(verified -> recordCheckVerificationCodeAttempt(session, verified ? verificationCode : null));
-      });
+                  throw CompletionExceptions.wrap(throwable);
+                })
+                .thenCompose(verified -> recordCheckVerificationCodeAttempt(session, verified ? verificationCode : null));
+          });
     }
   }
 
@@ -503,9 +542,9 @@ public class RegistrationService {
       final boolean hasAttemptedSms = session.getRegistrationAttemptsList().stream().anyMatch(attempt ->
           attempt.getMessageTransport() == org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS) ||
           session.getRejectedTransportsList().contains(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS) ||
-              session.getFailedAttemptsList().stream().anyMatch(attempt ->
-                  attempt.getMessageTransport() == org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS
-                      && attempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD);
+          session.getFailedAttemptsList().stream().anyMatch(attempt ->
+              attempt.getMessageTransport() == org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS
+                  && attempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD);
 
       if (hasAttemptedSms) {
         nextVoiceCall = Mono.fromFuture(sendVoiceVerificationCodePerSessionRateLimiter.getTimeOfNextAction(session));

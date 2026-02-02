@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.commons.lang3.StringUtils;
@@ -28,9 +29,9 @@ public class ConstSender implements VerificationCodeSender {
 
   public static final String SENDER_NAME = "const-verify";
   private static final Logger logger = LoggerFactory.getLogger(ConstSender.class);
+  private Map<Phonenumber.PhoneNumber, String> constPhoneNumberVerificationCodeMap = new HashMap<>();
+  private Map<String, String> sessionMap = new HashMap<>();//todo store in redis
 
-  Map<Phonenumber.PhoneNumber, String> map = new HashMap<>();
-  private Map<String, String> codeMap = new HashMap<>();
 
   public ConstSender(final ConstSenderConfiguration configuration) throws NumberParseException {
     if(configuration.phoneNumbers()!=null){
@@ -39,25 +40,23 @@ public class ConstSender implements VerificationCodeSender {
         Phonenumber.PhoneNumber p1 = new Phonenumber.PhoneNumber();
         p1.setCountryCode(Integer.parseInt(splits[0]));
         p1.setNationalNumber(Long.parseLong(splits[1]));
-        map.put(p1, splits[2]);
+        constPhoneNumberVerificationCodeMap.put(p1, splits[2]);
 
         logger.info("const:" + PhoneNumberUtil.getInstance().format(p1, PhoneNumberUtil.PhoneNumberFormat.E164));
 
       }
     }
 
-
-
     logger.info("init:"+this.getName());
   }
 
   public boolean hasNumber(Phonenumber.PhoneNumber p1){
-    return this.map.get(p1)!=null;
+    return this.constPhoneNumberVerificationCodeMap.get(p1)!=null;
   }
 
   public boolean hasRequest(final byte[] senderData){
     String requestId = new String(senderData, StandardCharsets.UTF_8);
-    return codeMap.get(requestId)!=null;
+    return sessionMap.get(requestId)!=null;
   }
 
   @Override
@@ -85,18 +84,17 @@ public class ConstSender implements VerificationCodeSender {
   public CompletableFuture<AttemptData> sendVerificationCode(final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber, final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) throws UnsupportedMessageTransportException {
-    final String verificationCode = map.get(phoneNumber);
-
     String sessionId = UUID.randomUUID().toString();
-    codeMap.put(sessionId, verificationCode);
-    if (StringUtils.isNotBlank(verificationCode)) {
-      AttemptData attemptData = new AttemptData(Optional.ofNullable(sessionId),
-          sessionId.getBytes(StandardCharsets.UTF_8));
 
-      return CompletableFuture.completedFuture(attemptData);
-    } else {
+    final String verificationCode = constPhoneNumberVerificationCodeMap.get(phoneNumber);
+    if(verificationCode==null){
       return CompletableFuture.failedFuture(new SenderRejectedRequestException("Unsupported phone number"));
     }
+
+    sessionMap.put(sessionId, verificationCode);
+    AttemptData attemptData = new AttemptData(Optional.ofNullable(sessionId),
+        sessionId.getBytes(StandardCharsets.UTF_8));
+    return CompletableFuture.completedFuture(attemptData);
   }
 
   @Override
@@ -104,7 +102,7 @@ public class ConstSender implements VerificationCodeSender {
     String requestId = new String(senderData, StandardCharsets.UTF_8);
 
     //String tmpCode = connection.sync().get(redis_key + requestId);
-    String tmpCode = codeMap.get(requestId);
+    String tmpCode = sessionMap.get(requestId);
     return CompletableFuture.completedFuture(StringUtils.equals(verificationCode, tmpCode));
   }
 }
