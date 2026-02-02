@@ -57,6 +57,8 @@ import org.signal.registration.util.ClientTypes;
 import org.signal.registration.util.CompletionExceptions;
 import org.signal.registration.util.MessageTransports;
 import org.signal.registration.util.UUIDUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 
 /**
@@ -65,6 +67,7 @@ import reactor.core.publisher.Mono;
  */
 @Singleton
 public class RegistrationService {
+  private static final Logger log = LoggerFactory.getLogger(RegistrationService.class);
 
   private final SenderSelectionStrategy senderSelectionStrategy;
   private final SessionRepository sessionRepository;
@@ -149,12 +152,15 @@ public class RegistrationService {
     if(phoneNumberMapConfiguration.map()!=null){
       Set<String> keys = phoneNumberMapConfiguration.map().keySet();
       for(String key : keys){
+        String value = phoneNumberMapConfiguration.map().get(key);
+        log.info(key + "=" + value);
+
         String[] keySplit = key.split("_");
         Phonenumber.PhoneNumber keyPhonenumber = new Phonenumber.PhoneNumber();
         keyPhonenumber.setCountryCode(Integer.parseInt(keySplit[0]));
         keyPhonenumber.setNationalNumber(Long.parseLong(keySplit[1]));
 
-        String[] valueSplit = phoneNumberMapConfiguration.map().get(key).split("_");
+        String[] valueSplit = value.split("_");
         Phonenumber.PhoneNumber valuePhonenumber = new Phonenumber.PhoneNumber();
         valuePhonenumber.setCountryCode(Integer.parseInt(valueSplit[0]));
         valuePhonenumber.setNationalNumber(Long.parseLong(valueSplit[1]));
