@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,8 +32,10 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import jakarta.validation.constraints.NotBlank;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.signal.registration.phonemap.PhoneNumberMapConfiguration;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.ratelimit.RateLimiter;
 import org.signal.registration.rpc.RegistrationSessionMetadata;
@@ -73,11 +76,14 @@ public class RegistrationService {
   private final RateLimiter<Phonenumber.PhoneNumber> sendVoiceVerificationCodePerNumberRateLimiter;
   private final RateLimiter<Phonenumber.PhoneNumber> checkVerificationCodePerNumberRateLimiter;
   private final Clock clock;
+  private final PhoneNumberMapConfiguration phoneNumberMapConfiguration;
 
   private final Map<String, VerificationCodeSender> sendersByName;
 
   @VisibleForTesting
   static final Duration SESSION_TTL_AFTER_LAST_ACTION = Duration.ofMinutes(10);
+
+  private Map<Phonenumber.PhoneNumber, Phonenumber.PhoneNumber> phoneNumberPhoneNumberMap = new HashMap<>();
 
 
   @VisibleForTesting
@@ -119,7 +125,8 @@ public class RegistrationService {
       @Named("send-voice-verification-code-per-number") final RateLimiter<Phonenumber.PhoneNumber> sendVoiceVerificationCodePerNumberRateLimiter,
       @Named("check-verification-code-per-number") final RateLimiter<Phonenumber.PhoneNumber> checkVerificationCodePerNumberRateLimiter,
       final List<VerificationCodeSender> verificationCodeSenders,
-      final Clock clock) {
+      final Clock clock,
+      final PhoneNumberMapConfiguration phoneNumberMapConfiguration) {
 
     this.senderSelectionStrategy = senderSelectionStrategy;
     this.sessionRepository = sessionRepository;
@@ -131,9 +138,30 @@ public class RegistrationService {
     this.sendVoiceVerificationCodePerNumberRateLimiter = sendVoiceVerificationCodePerNumberRateLimiter;
     this.checkVerificationCodePerNumberRateLimiter = checkVerificationCodePerNumberRateLimiter;
     this.clock = clock;
+    this.phoneNumberMapConfiguration = phoneNumberMapConfiguration;
 
     this.sendersByName = verificationCodeSenders.stream()
         .collect(Collectors.toMap(VerificationCodeSender::getName, Function.identity()));
+
+
+    //
+   // @Nullable Map<@NotBlank String, @NotBlank String> phoneNumberMap
+    if(phoneNumberMapConfiguration.map()!=null){
+      Set<String> keys = phoneNumberMapConfiguration.map().keySet();
+      for(String key : keys){
+        String[] keySplit = key.split("_");
+        Phonenumber.PhoneNumber keyPhonenumber = new Phonenumber.PhoneNumber();
+        keyPhonenumber.setCountryCode(Integer.parseInt(keySplit[0]));
+        keyPhonenumber.setNationalNumber(Long.parseLong(keySplit[1]));
+
+        String[] valueSplit = phoneNumberMapConfiguration.map().get(key).split("_");
+        Phonenumber.PhoneNumber valuePhonenumber = new Phonenumber.PhoneNumber();
+        valuePhonenumber.setCountryCode(Integer.parseInt(valueSplit[0]));
+        valuePhonenumber.setNationalNumber(Long.parseLong(valueSplit[1]));
+
+        phoneNumberPhoneNumberMap.put(keyPhonenumber, valuePhonenumber);
+      }
+    }
   }
 
   /**
@@ -218,7 +246,11 @@ public class RegistrationService {
               .map(FailedSendAttempt::getSenderName)
               .forEach(previouslyFailedSenders::add);
 
-          final Phonenumber.PhoneNumber phoneNumberFromSession = getPhoneNumberFromSession(session);
+          Phonenumber.PhoneNumber phoneNumberFromSession = getPhoneNumberFromSession(session);
+          if(this.phoneNumberPhoneNumberMap.get(phoneNumberFromSession)!=null){
+            phoneNumberFromSession = this.phoneNumberPhoneNumberMap.get(phoneNumberFromSession);
+          }
+
           final SenderSelection selection = senderSelectionStrategy.chooseVerificationCodeSender(
               messageTransport, phoneNumberFromSession, languageRanges, clientType, senderName,
               previouslyFailedSenders);

@@ -15,7 +15,6 @@ record AliyunSmsMessagingConfiguration(@NotBlank String accessKeyId,
                                        @NotBlank String templateCode,
                                        @NotNull String templateParamKey,
                                        @NotBlank String signName,
-                                       @NotNull Integer codeLen,
                                        @Nullable List<@NotBlank String> supportedLanguages) {
 
   private static List<String> DEFAULT_SUPPORTED_LANGUAGES = List.of(
