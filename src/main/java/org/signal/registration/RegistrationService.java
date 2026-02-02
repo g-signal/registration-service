@@ -35,6 +35,7 @@ import javax.annotation.Nullable;
 import jakarta.validation.constraints.NotBlank;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.signal.registration.phonemap.PhoneNumberMap;
 import org.signal.registration.phonemap.PhoneNumberMapConfiguration;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.ratelimit.RateLimiter;
@@ -149,10 +150,10 @@ public class RegistrationService {
 
     //
     // @Nullable Map<@NotBlank String, @NotBlank String> phoneNumberMap
-    if(phoneNumberMapConfiguration.map()!=null){
-      Set<String> keys = phoneNumberMapConfiguration.map().keySet();
-      for(String key : keys){
-        String value = phoneNumberMapConfiguration.map().get(key);
+    if(phoneNumberMapConfiguration.mappings()!=null){
+      for(PhoneNumberMap phoneNumberMap : phoneNumberMapConfiguration.mappings()){
+        String key = phoneNumberMap.from();
+        String value = phoneNumberMap.to();
         log.info(key + "=" + value);
 
         String[] keySplit = key.split("_");

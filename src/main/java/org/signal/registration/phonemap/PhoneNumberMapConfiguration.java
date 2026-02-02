@@ -9,6 +9,5 @@ import java.util.Map;
 
 @Context
 @ConfigurationProperties("phone-number-map")
-public
-record PhoneNumberMapConfiguration(@Nullable Map<@NotBlank String, @NotBlank String> map) {
+public record PhoneNumberMapConfiguration(@Nullable List<PhoneNumberMap> mappings) {
 }
