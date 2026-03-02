@@ -46,7 +46,7 @@ class FirestorePrescribedVerificationCodeRepository implements PrescribedVerific
 
   public FirestorePrescribedVerificationCodeRepository(final Firestore firestore,
       final FirestorePrescribedVerificationCodeRepositoryConfiguration configuration, final MeterRegistry meterRegistry) {
-
+    logger.info("FirestorePrescribedVerificationCodeRepository init");
     this.firestore = firestore;
     this.configuration = configuration;
 

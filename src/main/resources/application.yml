@@ -1,4 +1,5 @@
 micronaut:
+  env: gcp
   application:
     name: registrationService
 

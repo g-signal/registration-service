@@ -1,3 +1,32 @@
+micronaut:
+  env: gcp
+  application:
+    name: registrationService
+  server:
+    port: 8001
+  metrics:
+    binders:
+      netty:
+        queues:
+          enabled: true
+
+    export:
+      datadog:
+        enabled: true
+        step: 20s
+
+      otlp:
+        enabled: true
+        step: 20s
+
+    tags:
+      # Note that an `instance` tag is added at runtime in `Application.java`
+      service: registration
+
+  executors:
+    scheduled:
+      type: scheduled
+      core-pool-size: 16
 
 gcp: # env = gcp or env = cli, BigtableDataClientFactory
   project-id:
@@ -87,5 +116,13 @@ verification:
 redis: # StatefulRedisConnection must
   uri: redis://localhost:6379
   password: your_redis_password # 如果没有密码，可以省略此行
+
+
+
+# env = gcp
+# env = analytics
+# env = cli
+
+
 
 

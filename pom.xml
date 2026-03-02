@@ -551,6 +551,27 @@
         </configuration>
       </plugin>
 
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>properties-maven-plugin</artifactId>
+        <version>1.2.1</version>
+        <executions>
+          <execution>
+            <phase>initialize</phase>
+            <goals>
+              <goal>read-project-properties</goal>
+            </goals>
+            <configuration>
+              <files>
+                <file>config/${env}-build.properties</file>
+              </files>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+
       <plugin>
         <groupId>com.google.cloud.tools</groupId>
         <artifactId>jib-maven-plugin</artifactId>
@@ -559,6 +580,10 @@
           <from>
             <image>eclipse-temurin@sha256:${docker.image.sha256}</image>
           </from>
+
+          <to>
+            <image>${docker.repo}:${project.version}-${env}</image>
+          </to>
 
           <container>
             <jvmFlags>
