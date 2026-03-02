@@ -5,7 +5,7 @@
   -->
 
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.signal.registration</groupId>
   <artifactId>registration-service</artifactId>
@@ -562,11 +562,7 @@
             <goals>
               <goal>read-project-properties</goal>
             </goals>
-            <configuration>
-              <files>
-                <file>config/${env}-build.properties</file>
-              </files>
-            </configuration>
+
           </execution>
         </executions>
       </plugin>
@@ -581,9 +577,6 @@
             <image>eclipse-temurin@sha256:${docker.image.sha256}</image>
           </from>
 
-          <to>
-            <image>${docker.repo}:${project.version}-${env}</image>
-          </to>
 
           <container>
             <jvmFlags>

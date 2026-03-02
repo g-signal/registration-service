@@ -48,9 +48,3 @@ jobs:
             -Dpackaging=docker \
             -Djib.to.image="${{ secrets.DOCKERHUB_USERNAME }}/registration-service:${{ steps.tag.outputs.docker_tag }}"
 
-      - name: Push latest tag (for releases only)
-        if: github.event_name == 'release'
-        run: |
-          ./mvnw -e -B jib:build \
-            -Dpackaging=docker \
-            -Djib.to.image="${{ secrets.DOCKERHUB_USERNAME }}/registration-service:latest"
