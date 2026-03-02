@@ -3,7 +3,10 @@ package org.signal.registration.sender.const_sender;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import com.twilio.exception.ApiException;
 import jakarta.inject.Singleton;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
@@ -21,6 +24,7 @@ import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.sender.twilio.TwilioExceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,28 +85,31 @@ public class ConstSender implements VerificationCodeSender {
   }
 
   @Override
-  public CompletableFuture<AttemptData> sendVerificationCode(final MessageTransport messageTransport,
+  public AttemptData sendVerificationCode(final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber, final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) throws UnsupportedMessageTransportException {
+      final ClientType clientType) throws SenderRejectedRequestException {
     String sessionId = UUID.randomUUID().toString();
 
     final String verificationCode = constPhoneNumberVerificationCodeMap.get(phoneNumber);
     if(verificationCode==null){
-      return CompletableFuture.failedFuture(new SenderRejectedRequestException("Unsupported phone number"));
+      ApiException e =new ApiException("unsupported");
+      final Optional<SenderRejectedRequestException> maybeSenderRejectedRequestException =
+          TwilioExceptions.toSenderRejectedException(e);
+      throw maybeSenderRejectedRequestException.orElseThrow(() -> new UncheckedIOException(new IOException(e)));
     }
 
     sessionMap.put(sessionId, verificationCode);
     AttemptData attemptData = new AttemptData(Optional.ofNullable(sessionId),
         sessionId.getBytes(StandardCharsets.UTF_8));
-    return CompletableFuture.completedFuture(attemptData);
+    return attemptData;
   }
 
   @Override
-  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] senderData) {
+  public boolean checkVerificationCode(final String verificationCode, final byte[] senderData) {
     String requestId = new String(senderData, StandardCharsets.UTF_8);
 
     //String tmpCode = connection.sync().get(redis_key + requestId);
     String tmpCode = sessionMap.get(requestId);
-    return CompletableFuture.completedFuture(StringUtils.equals(verificationCode, tmpCode));
+    StringUtils.equals(verificationCode, tmpCode);
   }
 }

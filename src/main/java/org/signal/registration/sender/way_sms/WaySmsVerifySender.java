@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import com.twilio.exception.ApiException;
 import io.lettuce.core.SetArgs;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
@@ -15,11 +16,12 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.*;
-import org.signal.registration.sender.twilio.ApiExceptions;
+import org.signal.registration.sender.twilio.TwilioExceptions;
 import org.signal.registration.util.CompletionExceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
@@ -92,9 +94,9 @@ public class WaySmsVerifySender implements VerificationCodeSender {
   }
 
   @Override
-  public CompletableFuture<AttemptData> sendVerificationCode(final MessageTransport messageTransport,
+  public AttemptData sendVerificationCode(final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber, final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) throws UnsupportedMessageTransportException {
+      final ClientType clientType) throws SenderRejectedRequestException {
     String locale = Locale.lookupTag(languageRanges, configuration.supportedLanguages());
 
     final Timer.Sample sample = Timer.start();
@@ -103,65 +105,66 @@ public class WaySmsVerifySender implements VerificationCodeSender {
     String tmpCode = verificationCodeGenerator.generateVerificationCode();
     String nationalNumber = String.valueOf(phoneNumber.getNationalNumber());
 
-    CompletableFuture<AttemptData> completableFuture = CompletableFuture.supplyAsync(() -> {
-          HashMap<String, Object> map = new HashMap<>();
-          map.put("apiAccount", this.configuration.apiAccount());
-          map.put("secretKey", this.configuration.secretKey());
-          map.put("mobiles", nationalNumber);
-          map.put("content", StringUtils.replace(configuration.template(), "code", tmpCode));
-          try {
-            return post(configuration.url(), map);
-          } catch (IOException e) {
-            throw new RuntimeException(e);
-          }
+    try {
+      HashMap<String, Object> map = new HashMap<>();
+      map.put("apiAccount", this.configuration.apiAccount());
+      map.put("secretKey", this.configuration.secretKey());
+      map.put("mobiles", nationalNumber);
+      map.put("content", StringUtils.replace(configuration.template(), "code", tmpCode));
+      try {
+        String sendSmsResponse = post(configuration.url(), map);
+        Gson gson = new GsonBuilder().create();
+        WaySmsRes waySmsRes = gson.fromJson(sendSmsResponse, WaySmsRes.class);
 
-        }, getExecutorService())
-        .toCompletableFuture()
-        .whenComplete((sessionData, throwable) ->
-            this.apiClientInstrumenter.recordApiCallMetrics(
-                this.getName(),
-                endpointName,
-                throwable == null,
-                ApiExceptions.extractErrorCode(throwable),
-                sample)
-        )
-        .handle((sendSmsResponse, throwable) -> {
-          //{"status":0,"message":"提交成功","data":"c47a4a49-fdba-41ab-8c56-6b773fe2350b","desc":null}
-          Gson gson = new GsonBuilder().create();
-          WaySmsRes waySmsRes = gson.fromJson(sendSmsResponse, WaySmsRes.class);
-          if (throwable == null && waySmsRes.getStatus() == 0) {
-            SetArgs setArgs = SetArgs.Builder.ex(getAttemptTtl());
-            codeMap.put(redis_key + waySmsRes.getData(),tmpCode );
-            //connection.sync().set(redis_key + waySmsRes.getData(), tmpCode, setArgs);
-            return new AttemptData(Optional.ofNullable(waySmsRes.getData()),
-                waySmsRes.getData().getBytes(StandardCharsets.UTF_8));
-          }
+        if (waySmsRes.getStatus() == 0) {
+          codeMap.put(redis_key + waySmsRes.getData(),tmpCode );
+          //connection.sync().set(redis_key + waySmsRes.getData(), tmpCode, setArgs);
+          return new AttemptData(Optional.ofNullable(waySmsRes.getData()),
+              waySmsRes.getData().getBytes(StandardCharsets.UTF_8));
+        } else {
+          throw new ApiException("error");
+        }
+      } catch (IOException e) {
+        throw new ApiException(e.getMessage());
+      }
+    }catch (final ApiException e) {
+      this.apiClientInstrumenter.recordApiCallMetrics(
+          this.getName(),
+          endpointName,
+          false,
+          TwilioExceptions.extractErrorCode(e),
+          sample);
 
-          final Throwable exception = ApiExceptions.toSenderException(throwable);
-          if (exception instanceof SenderInvalidParametersException p) {
-            final String regionCode = PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber);
-            final Tags tags = p.getParamName().map(param -> switch (param) {
-                  case NUMBER -> Tags.of("paramType", "number",
-                      MetricsUtil.TRANSPORT_TAG_NAME, messageTransport.name(),
-                      MetricsUtil.REGION_CODE_TAG_NAME, StringUtils.defaultIfBlank(regionCode, "XX"));
-                  case LOCALE -> Tags.of("paramType", "locale",
-                      "locale", locale,
-                      MetricsUtil.TRANSPORT_TAG_NAME, messageTransport.name());
-                })
-                .orElse(Tags.of("paramType", "unknown"));
-            meterRegistry.counter(INVALID_PARAM_NAME, tags).increment();
-          }
-          throw CompletionExceptions.wrap(exception);
-        });
-    return completableFuture;
+      final Optional<SenderRejectedRequestException> maybeSenderRejectedRequestException =
+          TwilioExceptions.toSenderRejectedException(e);
+
+      maybeSenderRejectedRequestException.ifPresent(senderRejectedRequestException -> {
+        if (senderRejectedRequestException instanceof SenderInvalidParametersException senderInvalidParametersException) {
+          final String regionCode = PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber);
+          final Tags tags = senderInvalidParametersException.getParamName().map(param -> switch (param) {
+                case NUMBER -> Tags.of("paramType", "number",
+                    MetricsUtil.TRANSPORT_TAG_NAME, messageTransport.name(),
+                    MetricsUtil.REGION_CODE_TAG_NAME, StringUtils.defaultIfBlank(regionCode, "XX"));
+                case LOCALE -> Tags.of("paramType", "locale",
+                    "locale", locale,
+                    MetricsUtil.TRANSPORT_TAG_NAME, messageTransport.name());
+              })
+              .orElse(Tags.of("paramType", "unknown"));
+
+          meterRegistry.counter(INVALID_PARAM_NAME, tags).increment();
+        }
+      });
+
+      throw maybeSenderRejectedRequestException.orElseThrow(() -> new UncheckedIOException(new IOException(e)));
+    }
   }
 
-  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] senderData) {
+  public boolean checkVerificationCode(final String verificationCode, final byte[] senderData) {
     String requestId = new String(senderData, StandardCharsets.UTF_8);
 
     //String tmpCode = connection.sync().get(redis_key + requestId);
     String tmpCode = codeMap.get(redis_key + requestId);
-    return CompletableFuture.completedFuture(StringUtils.equals(verificationCode, tmpCode));
+    return StringUtils.equals(verificationCode, tmpCode);
   }
 
   private String post(String url, HashMap<String, Object> map) throws IOException {
