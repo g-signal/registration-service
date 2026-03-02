@@ -110,6 +110,6 @@ public class ConstSender implements VerificationCodeSender {
 
     //String tmpCode = connection.sync().get(redis_key + requestId);
     String tmpCode = sessionMap.get(requestId);
-    StringUtils.equals(verificationCode, tmpCode);
+    return StringUtils.equals(verificationCode, tmpCode);
   }
 }
