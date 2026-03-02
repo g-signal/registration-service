@@ -1,0 +1,58 @@
+name: Build and push to Docker Hub
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Docker tag to use (default: branch name)'
+        required: false
+        type: string
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Set up JDK
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
+        with:
+          distribution: 'temurin'
+          java-version-file: .java-version
+          cache: 'maven'
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@1f401f745bf57e30b3a2800ad308a87d2ebdf14b # v3.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Determine Docker tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            echo "docker_tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          elif [ "${{ inputs.tag }}" != "" ]; then
+            echo "docker_tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "docker_tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push to Docker Hub
+        run: |
+          ./mvnw -e -B deploy \
+            -Dpackaging=docker \
+            -Djib.to.image="${{ secrets.DOCKERHUB_USERNAME }}/registration-service:${{ steps.tag.outputs.docker_tag }}"
+
+      - name: Push latest tag (for releases only)
+        if: github.event_name == 'release'
+        run: |
+          ./mvnw -e -B jib:build \
+            -Dpackaging=docker \
+            -Djib.to.image="${{ secrets.DOCKERHUB_USERNAME }}/registration-service:latest"
