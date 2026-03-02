@@ -11,13 +11,13 @@ import jakarta.inject.Singleton;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import org.signal.registration.analytics.AbstractAttemptAnalyzer;
 import org.signal.registration.analytics.AttemptAnalysis;
 import org.signal.registration.analytics.AttemptAnalyzedEvent;
 import org.signal.registration.analytics.AttemptPendingAnalysis;
 import org.signal.registration.analytics.AttemptPendingAnalysisRepository;
 import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Analyzes verification attempts from {@link TwilioVerifySender}.
@@ -32,7 +32,7 @@ class TwilioVerifyAttemptAnalyzer extends AbstractAttemptAnalyzer {
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
       final Clock clock) {
 
-    super(repository, attemptAnalyzedEventPublisher, clock);
+    super(repository, Schedulers.immediate(), attemptAnalyzedEventPublisher, clock);
 
     this.twilioVerifyPriceEstimator = twilioVerifyPriceEstimator;
   }
@@ -56,10 +56,10 @@ class TwilioVerifyAttemptAnalyzer extends AbstractAttemptAnalyzer {
   }
 
   @Override
-  protected CompletableFuture<AttemptAnalysis> analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis) {
-    return CompletableFuture.completedFuture(new AttemptAnalysis(Optional.empty(),
+  protected AttemptAnalysis analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis) {
+    return new AttemptAnalysis(Optional.empty(),
         twilioVerifyPriceEstimator.estimatePrice(attemptPendingAnalysis, null, null),
         Optional.empty(),
-        Optional.empty()));
+        Optional.empty());
   }
 }

@@ -8,7 +8,6 @@ package org.signal.registration.ratelimit;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * A trivial rate limiter implementation that allows all actions unconditionally. This implementation is intended only
@@ -25,12 +24,11 @@ class AllowAllRateLimiter<K> implements RateLimiter<K> {
   }
 
   @Override
-  public CompletableFuture<Optional<Instant>> getTimeOfNextAction(final K key) {
-    return CompletableFuture.completedFuture(Optional.of(clock.instant()));
+  public Optional<Instant> getTimeOfNextAction(final K key) {
+    return Optional.of(clock.instant());
   }
 
   @Override
-  public CompletableFuture<Void> checkRateLimit(final K key) {
-    return CompletableFuture.completedFuture(null);
+  public void checkRateLimit(final K key) {
   }
 }

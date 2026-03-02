@@ -19,7 +19,6 @@ import jakarta.inject.Inject;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -71,6 +70,9 @@ import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 @Property(name = "infobip.default-sender-id", value="default")
 @Property(name = "infobip.api-key", value="api-key")
 @Property(name = "infobip.base-url", value="https://mmmex9.us.api.com")
+@Property(name = "sinch.sms.client.service-plan-id", value="servicePlanId")
+@Property(name = "sinch.sms.client.api-token", value="apiToken")
+@Property(name = "sinch.default-sender-id", value="default")
 class WeightedSelectionStrategyIntegrationTest {
 
   @MockBean(RegistrationService.class)
@@ -81,7 +83,7 @@ class WeightedSelectionStrategyIntegrationTest {
   @MockBean
   PrescribedVerificationCodeRepository prescribedVerificationCodeRepository() {
     final PrescribedVerificationCodeRepository repository = mock(PrescribedVerificationCodeRepository.class);
-    when(repository.getVerificationCodes()).thenReturn(CompletableFuture.completedFuture(Collections.emptyMap()));
+    when(repository.getVerificationCodes()).thenReturn(Collections.emptyMap());
     return repository;
   }
 
@@ -119,13 +121,11 @@ class WeightedSelectionStrategyIntegrationTest {
   private static final Phonenumber.PhoneNumber USE_INFOBIP_SMS_NUMBER =
       PhoneNumberUtil.getInstance().getExampleNumber("GB");
 
-  private static final Phonenumber.PhoneNumber USE_MB_E164_OVERRIDE_NUMBER;
   private static final Phonenumber.PhoneNumber FICTITIOUS_PHONE_NUMBER;
 
   static {
     try {
       FICTITIOUS_PHONE_NUMBER = PhoneNumberUtil.getInstance().parse("+12025550123", null);
-      USE_MB_E164_OVERRIDE_NUMBER = PhoneNumberUtil.getInstance().parse("+12223334444", null);
     } catch (final NumberParseException e) {
       // This should never happen for a literally-specified, known-good phone number
       throw new AssertionError(e);
@@ -135,7 +135,7 @@ class WeightedSelectionStrategyIntegrationTest {
   @BeforeEach
   void setUp() {
     when(prescribedVerificationCodeRepository.getVerificationCodes())
-        .thenReturn(CompletableFuture.completedFuture(Map.of(PRESCRIBED_CODE_NUMBER, "123456")));
+        .thenReturn(Map.of(PRESCRIBED_CODE_NUMBER, "123456"));
 
     prescribedVerificationCodeSender.refreshPhoneNumbers();
   }

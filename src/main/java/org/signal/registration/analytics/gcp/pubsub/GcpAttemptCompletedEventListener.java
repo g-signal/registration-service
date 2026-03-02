@@ -8,6 +8,7 @@ package org.signal.registration.analytics.gcp.pubsub;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import com.google.protobuf.Message;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.micronaut.context.event.ApplicationEventListener;
@@ -36,6 +37,7 @@ class GcpAttemptCompletedEventListener implements ApplicationEventListener<Sessi
   private static final Logger logger = LoggerFactory.getLogger(GcpAttemptCompletedEventListener.class);
 
   private final AttemptCompletedPubSubClient attemptCompletedPubSubClient;
+  private final FraudulentAttemptPubSubClient fraudulentAttemptPubSubClient;
   private final Executor executor;
   private final MeterRegistry meterRegistry;
   private final Timer startPublishTimer;
@@ -51,10 +53,12 @@ class GcpAttemptCompletedEventListener implements ApplicationEventListener<Sessi
   public GcpAttemptCompletedEventListener(
       final MeterRegistry meterRegistry,
       final AttemptCompletedPubSubClient attemptCompletedPubSubClient,
+      final FraudulentAttemptPubSubClient fraudulentAttemptPubSubClient,
       final @Named(TaskExecutors.BLOCKING) Executor executor) {
 
     this.meterRegistry = meterRegistry;
     this.attemptCompletedPubSubClient = attemptCompletedPubSubClient;
+    this.fraudulentAttemptPubSubClient = fraudulentAttemptPubSubClient;
     this.executor = executor;
     this.startPublishTimer = meterRegistry.timer(MetricsUtil.name(getClass(), "startPublish"));
     this.publishTimer = meterRegistry.timer(MetricsUtil.name(getClass(), "publish"));
@@ -72,7 +76,22 @@ class GcpAttemptCompletedEventListener implements ApplicationEventListener<Sessi
       final FailedSendAttempt failedAttempt = session.getFailedAttempts(i);
       if (failedAttempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE) {
         // Only ding a sender's verification ratio if it was unavailable. If the provider indicated that the message
-        // was undeliverable (either due to fraud, bad number, etc) assume that's accurate and don't penalize for it
+        // was undeliverable (either due to fraud, bad number, etc) assume that's accurate and don't penalize for it.
+        // Additionally, publish to pub/sub if the attempt is fraudulent
+        if (failedAttempt.getFailedSendReason() == FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD) {
+          final FraudulentAttemptPubSubMessage fraudulentAttempt = FraudulentAttemptPubSubMessage.newBuilder()
+              .setSessionId(UUIDUtil.uuidFromByteString(session.getId()).toString())
+              .setSenderName(failedAttempt.getSenderName())
+              .setMessageTransport(MetricsUtil.getMessageTransportTagValue(failedAttempt.getMessageTransport()))
+              .setClientType(MetricsUtil.getClientTypeTagValue(failedAttempt.getClientType()))
+              .setRegion(region)
+              .setTimestamp(Instant.ofEpochMilli(failedAttempt.getTimestampEpochMillis()).toString())
+              .setAccountExistsWithE164(session.getSessionMetadata().getAccountExistsWithE164())
+              .setSelectionReason(failedAttempt.getSelectionReason())
+              .build();
+          publish(fraudulentAttemptPubSubClient, fraudulentAttempt);
+        }
+
         continue;
       }
 
@@ -89,7 +108,7 @@ class GcpAttemptCompletedEventListener implements ApplicationEventListener<Sessi
           .setSelectionReason(failedAttempt.getSelectionReason())
           .build();
 
-      publish(completedAttempt);
+      publish(attemptCompletedPubSubClient, completedAttempt);
     }
 
     for (int i = 0; i < session.getRegistrationAttemptsCount(); i++) {
@@ -116,11 +135,11 @@ class GcpAttemptCompletedEventListener implements ApplicationEventListener<Sessi
           .setSelectionReason(registrationAttempt.getSelectionReason())
           .build();
 
-      publish(completedAttempt);
+      publish(attemptCompletedPubSubClient, completedAttempt);
     }
   }
 
-  private void publish(final CompletedAttemptPubSubMessage completedAttempt) {
+  private void publish(final PubSubSenderClient pubSubSenderClient, final Message proto) {
     final Timer.Sample startPublishSample = Timer.start();
     final Timer.Sample totalPublishSample = Timer.start();
 
@@ -129,7 +148,7 @@ class GcpAttemptCompletedEventListener implements ApplicationEventListener<Sessi
       boolean success = false;
 
       try {
-        attemptCompletedPubSubClient.send(completedAttempt.toByteArray());
+        pubSubSenderClient.send(proto.toByteArray());
         success = true;
       } catch (final Exception e) {
         logger.warn("Error processing session completion event", e);
