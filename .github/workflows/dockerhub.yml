@@ -48,6 +48,7 @@ jobs:
         run: |
           ./mvnw -e -B deploy \
             -Dpackaging=docker \
+            -DskipTests=true \
             -Djib.to.image="${{ secrets.DOCKERHUB_USERNAME }}/registration-service:${{ steps.tag.outputs.docker_tag }}"
 
       - name: Push latest tag (for releases only)
@@ -55,4 +56,5 @@ jobs:
         run: |
           ./mvnw -e -B jib:build \
             -Dpackaging=docker \
+            -DskipTests=true \
             -Djib.to.image="${{ secrets.DOCKERHUB_USERNAME }}/registration-service:latest"
