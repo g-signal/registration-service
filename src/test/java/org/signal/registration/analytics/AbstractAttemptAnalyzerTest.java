@@ -14,18 +14,20 @@ import static org.mockito.Mockito.when;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.TaskScheduler;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Currency;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledFuture;
+import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 class AbstractAttemptAnalyzerTest {
 
@@ -39,13 +41,13 @@ class AbstractAttemptAnalyzerTest {
 
   private static class TestAttemptAnalyzer extends AbstractAttemptAnalyzer {
 
-    private CompletableFuture<AttemptAnalysis> mockAnalysisFuture;
+    private Function<AttemptPendingAnalysis, AttemptAnalysis> attemptAnalysisFunction;
 
     protected TestAttemptAnalyzer(final AttemptPendingAnalysisRepository repository,
         final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
         final Clock clock) {
 
-      super(repository, attemptAnalyzedEventPublisher, clock);
+      super(repository, Schedulers.immediate(), attemptAnalyzedEventPublisher, clock);
     }
 
     @Override
@@ -54,12 +56,12 @@ class AbstractAttemptAnalyzerTest {
     }
 
     @Override
-    protected CompletableFuture<AttemptAnalysis> analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis) {
-      return mockAnalysisFuture;
+    protected AttemptAnalysis analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis) {
+      return attemptAnalysisFunction.apply(attemptPendingAnalysis);
     }
 
-    public void setMockAnalysisFuture(final CompletableFuture<AttemptAnalysis> mockAnalysisFuture) {
-      this.mockAnalysisFuture = mockAnalysisFuture;
+    public void setAnalysisFunction(final Function<AttemptPendingAnalysis, AttemptAnalysis> attemptAnalysisFunction) {
+      this.attemptAnalysisFunction = attemptAnalysisFunction;
     }
   }
 
@@ -81,7 +83,7 @@ class AbstractAttemptAnalyzerTest {
 
   @Test
   void analyzeAttempts() {
-    final String remoteId = RandomStringUtils.randomAlphabetic(16);
+    final String remoteId = RandomStringUtils.insecure().nextAlphabetic(16);
 
     final AttemptPendingAnalysis attemptPendingAnalysis = AttemptPendingAnalysis.newBuilder()
         .setSenderName(TEST_SENDER_NAME)
@@ -95,8 +97,8 @@ class AbstractAttemptAnalyzerTest {
         Optional.of("001"),
         Optional.of("002"));
 
-    when(repository.getBySender(TEST_SENDER_NAME)).thenReturn(Mono.just(attemptPendingAnalysis));
-    attemptAnalyzer.setMockAnalysisFuture(CompletableFuture.completedFuture(attemptAnalysis));
+    when(repository.getBySender(TEST_SENDER_NAME)).thenReturn(Stream.of(attemptPendingAnalysis));
+    attemptAnalyzer.setAnalysisFunction(ignored -> attemptAnalysis);
 
     attemptAnalyzer.analyzeAttempts();
 
@@ -108,12 +110,12 @@ class AbstractAttemptAnalyzerTest {
   void analyzeAttemptsNotAvailable() {
     final AttemptPendingAnalysis attemptPendingAnalysis = AttemptPendingAnalysis.newBuilder()
         .setSenderName(TEST_SENDER_NAME)
-        .setRemoteId(RandomStringUtils.randomAlphabetic(16))
+        .setRemoteId(RandomStringUtils.insecure().nextAlphabetic(16))
         .setTimestampEpochMillis(clock.millis())
         .build();
 
-    when(repository.getBySender(TEST_SENDER_NAME)).thenReturn(Mono.just(attemptPendingAnalysis));
-    attemptAnalyzer.setMockAnalysisFuture(CompletableFuture.completedFuture(AttemptAnalysis.EMPTY));
+    when(repository.getBySender(TEST_SENDER_NAME)).thenReturn(Stream.of(attemptPendingAnalysis));
+    attemptAnalyzer.setAnalysisFunction(ignored -> AttemptAnalysis.EMPTY);
 
     attemptAnalyzer.analyzeAttempts();
 
@@ -123,7 +125,7 @@ class AbstractAttemptAnalyzerTest {
 
   @Test
   void analyzeAttemptsNotAvailableDeadlinePassed() {
-    final String remoteId = RandomStringUtils.randomAlphabetic(16);
+    final String remoteId = RandomStringUtils.insecure().nextAlphabetic(16);
 
     final AttemptPendingAnalysis attemptPendingAnalysis = AttemptPendingAnalysis.newBuilder()
         .setSenderName(TEST_SENDER_NAME)
@@ -131,8 +133,8 @@ class AbstractAttemptAnalyzerTest {
         .setTimestampEpochMillis(clock.instant().minus(AbstractAttemptAnalyzer.DEFAULT_PRICING_DEADLINE).minusSeconds(1).toEpochMilli())
         .build();
 
-    when(repository.getBySender(TEST_SENDER_NAME)).thenReturn(Mono.just(attemptPendingAnalysis));
-    attemptAnalyzer.setMockAnalysisFuture(CompletableFuture.completedFuture(AttemptAnalysis.EMPTY));
+    when(repository.getBySender(TEST_SENDER_NAME)).thenReturn(Stream.of(attemptPendingAnalysis));
+    attemptAnalyzer.setAnalysisFunction(ignored -> AttemptAnalysis.EMPTY);
 
     attemptAnalyzer.analyzeAttempts();
 
@@ -144,12 +146,14 @@ class AbstractAttemptAnalyzerTest {
   void analyzeAttemptsError() {
     final AttemptPendingAnalysis attemptPendingAnalysis = AttemptPendingAnalysis.newBuilder()
         .setSenderName(TEST_SENDER_NAME)
-        .setRemoteId(RandomStringUtils.randomAlphabetic(16))
+        .setRemoteId(RandomStringUtils.insecure().nextAlphabetic(16))
         .setTimestampEpochMillis(clock.millis())
         .build();
 
-    when(repository.getBySender(TEST_SENDER_NAME)).thenReturn(Mono.just(attemptPendingAnalysis));
-    attemptAnalyzer.setMockAnalysisFuture(CompletableFuture.failedFuture(new IOException("OH NO")));
+    when(repository.getBySender(TEST_SENDER_NAME)).thenReturn(Stream.of(attemptPendingAnalysis));
+    attemptAnalyzer.setAnalysisFunction(ignored -> {
+      throw new UncheckedIOException(new IOException("OH NO"));
+    });
 
     attemptAnalyzer.analyzeAttempts();
 

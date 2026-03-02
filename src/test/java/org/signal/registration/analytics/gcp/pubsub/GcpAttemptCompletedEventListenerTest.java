@@ -3,9 +3,11 @@ package org.signal.registration.analytics.gcp.pubsub;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
@@ -35,6 +37,7 @@ class GcpAttemptCompletedEventListenerTest {
 
   private static final Phonenumber.PhoneNumber PHONE_NUMBER = PhoneNumberUtil.getInstance().getExampleNumber("US");
   private AttemptCompletedPubSubClient pubSubClient;
+  private FraudulentAttemptPubSubClient fraudulentAttemptPubSubClient;
   private GcpAttemptCompletedEventListener listener;
 
 
@@ -42,12 +45,13 @@ class GcpAttemptCompletedEventListenerTest {
   void setUp() {
     final MeterRegistry meterRegistry = new SimpleMeterRegistry();
     pubSubClient = mock(AttemptCompletedPubSubClient.class);
-    listener = new GcpAttemptCompletedEventListener(meterRegistry, pubSubClient, MoreExecutors.directExecutor());
+    fraudulentAttemptPubSubClient = mock(FraudulentAttemptPubSubClient.class);
+    listener = new GcpAttemptCompletedEventListener(meterRegistry, pubSubClient, fraudulentAttemptPubSubClient, MoreExecutors.directExecutor());
   }
 
   @ParameterizedTest
   @MethodSource
-  void onApplicationEvent(final FailedSendReason failedSendReason, final boolean expectThatFailedAttemptIsPublished) {
+  void onApplicationEvent(final FailedSendReason failedSendReason, final boolean expectFraudulentAttemptIsPublished, final boolean expectThatFailedAttemptIsPublished) {
     final FailedSendAttempt failedSendAttempt = FailedSendAttempt.newBuilder()
         .setClientType(ClientType.CLIENT_TYPE_ANDROID_WITH_FCM)
         .setFailedSendReason(failedSendReason)
@@ -72,6 +76,11 @@ class GcpAttemptCompletedEventListenerTest {
         .addRegistrationAttempts(registrationAttempt)
         .build());
     listener.onApplicationEvent(event);
+    if (expectFraudulentAttemptIsPublished) {
+      verify(fraudulentAttemptPubSubClient).send(any(byte[].class));
+    } else {
+      verifyNoInteractions(fraudulentAttemptPubSubClient);
+    }
     final ArgumentCaptor<byte[]> argumentCaptor = ArgumentCaptor.forClass(byte[].class);
     verify(pubSubClient, times(expectThatFailedAttemptIsPublished ? 2 : 1)).send(argumentCaptor.capture());
     final List<CompletedAttemptPubSubMessage> pubSubMessages = argumentCaptor.getAllValues().stream()
@@ -97,9 +106,9 @@ class GcpAttemptCompletedEventListenerTest {
 
   public static Stream<Arguments> onApplicationEvent() {
     return Stream.of(
-        Arguments.of(FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE, true),
-        Arguments.of(FailedSendReason.FAILED_SEND_REASON_REJECTED, false),
-        Arguments.of(FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD, false)
+        Arguments.of(FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE, false, true),
+        Arguments.of(FailedSendReason.FAILED_SEND_REASON_REJECTED, false, false),
+        Arguments.of(FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD, true, false)
     );
   }
 }

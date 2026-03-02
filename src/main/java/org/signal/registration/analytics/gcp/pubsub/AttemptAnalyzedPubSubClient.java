@@ -11,7 +11,7 @@ import io.micronaut.gcp.pubsub.annotation.Topic;
 
 @PubSubClient
 @Requires(property = "analytics.pubsub.analyzed-attempts.topic")
-interface AttemptAnalyzedPubSubClient {
+interface AttemptAnalyzedPubSubClient extends PubSubSenderClient {
 
   @Topic(value = "${analytics.pubsub.analyzed-attempts.topic}", contentType = "application/protobuf", configuration = "analytics")
   void send(byte[] attemptAnalyzedPubSubMessage);

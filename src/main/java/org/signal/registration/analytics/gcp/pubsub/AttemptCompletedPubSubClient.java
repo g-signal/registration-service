@@ -11,7 +11,7 @@ import io.micronaut.gcp.pubsub.annotation.Topic;
 
 @PubSubClient
 @Requires(property = "analytics.pubsub.completed-attempts.topic")
-interface AttemptCompletedPubSubClient {
+interface AttemptCompletedPubSubClient extends PubSubSenderClient {
 
   @Topic(value = "${analytics.pubsub.completed-attempts.topic}", contentType = "application/protobuf", configuration = "analytics")
   void send(byte[] attemptCompletedPubSubMessage);
