@@ -27,12 +27,23 @@ micronaut:
       type: scheduled
       core-pool-size: 16
 
-# Use SDK autoconfiguration (https://opentelemetry.io/docs/languages/java/configuration/#zero-code-sdk-autoconfigure)
-# and io.micronaut.tracing.opentelemetry.DefaultOpenTelemetryFactory
+# OpenTelemetry SDK autoconfiguration
+# (https://opentelemetry.io/docs/languages/java/configuration/#zero-code-sdk-autoconfigure)
+# is consumed by io.micronaut.tracing.opentelemetry.DefaultOpenTelemetryFactory.
 #
-# There is no metrics exporter because micrometer submits OTLP directly.
+# The SDK is disabled: we do not deploy an OTel collector, and the OTEL logback
+# appender has been removed from logback.xml, so there is nothing to export.
+# With this set, DefaultOpenTelemetryFactory still supplies a no-op OpenTelemetry
+# instance, so OpenTelemetryLogbackSdkInitializer starts up cleanly.
+#
+# Note this does not affect metrics: `micronaut.metrics.export.otlp` is
+# Micrometer's own OTLP registry and is configured independently.
 otel:
+  sdk:
+    disabled: true
   logs:
-    exporter: otlp
-  exporter:
-    otlp: {}
+    exporter: none
+  traces:
+    exporter: none
+  metrics:
+    exporter: none
