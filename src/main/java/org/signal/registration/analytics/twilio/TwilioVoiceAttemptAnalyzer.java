@@ -7,6 +7,8 @@ package org.signal.registration.analytics.twilio;
 
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.api.v2010.account.Call;
+import io.micronaut.context.annotation.Requires;
+import io.micronaut.context.env.Environment;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Singleton;
@@ -29,6 +31,7 @@ import reactor.core.scheduler.Schedulers;
  * Analyzes verification attempts from {@link TwilioVoiceSender}.
  */
 @Singleton
+@Requires(notEnv = Environment.TEST)
 class TwilioVoiceAttemptAnalyzer extends AbstractAttemptAnalyzer {
 
   private final TwilioRestClient twilioRestClient;

@@ -10,10 +10,6 @@ micronaut:
           enabled: true
 
     export:
-      datadog:
-        enabled: false
-        step: 20s
-
       otlp:
         enabled: false
         step: 20s

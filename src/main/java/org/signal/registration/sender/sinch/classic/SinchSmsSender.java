@@ -35,6 +35,7 @@ import org.signal.registration.sender.VerificationSmsBodyProvider;
 import org.signal.registration.sender.sinch.SinchClassicSessionData;
 import org.signal.registration.sender.sinch.SinchExceptions;
 import org.signal.registration.sender.sinch.SinchSenderConfiguration;
+import org.signal.registration.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -148,7 +149,7 @@ public class SinchSmsSender implements VerificationCodeSender {
       throws SenderRejectedRequestException {
     try {
       final String storedVerificationCode = SinchClassicSessionData.parseFrom(senderData).getVerificationCode();
-      return storedVerificationCode.equals(verificationCode);
+      return Strings.equalsConstantTime(storedVerificationCode, verificationCode);
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Failed to parse stored session data", e);
       throw new UncheckedIOException(e);

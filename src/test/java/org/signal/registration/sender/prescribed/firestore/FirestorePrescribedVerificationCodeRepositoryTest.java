@@ -30,7 +30,7 @@ class FirestorePrescribedVerificationCodeRepositoryTest {
 
   // See https://console.cloud.google.com/artifacts/docker/google.com:cloudsdktool/us/gcr.io/google-cloud-cli
   private static final String FIRESTORE_EMULATOR_IMAGE_NAME = "gcr.io/google.com/cloudsdktool/cloud-sdk:" +
-      System.getProperty("firestore.emulator.version", "emulators");
+      System.getProperty("gcloud.emulator.version", "emulators");
 
   @Container
   private static final FirestoreEmulatorContainer CONTAINER = new FirestoreEmulatorContainer(

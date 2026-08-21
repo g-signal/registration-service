@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import org.signal.registration.Environments;
+import org.signal.registration.util.Strings;
 
 /**
  * A trivial verification code "sender" that never actually sends codes, but instead always uses the last six digits of
@@ -60,7 +61,7 @@ public class LastDigitsOfPhoneNumberVerificationCodeSender implements Verificati
 
   @Override
   public boolean checkVerificationCode(final String verificationCode, final byte[] senderData) {
-    return verificationCode.equals(new String(senderData, StandardCharsets.UTF_8));
+    return Strings.equalsConstantTime(verificationCode, new String(senderData, StandardCharsets.UTF_8));
   }
 
   public static String getVerificationCode(final Phonenumber.PhoneNumber phoneNumber) {

@@ -5,6 +5,8 @@
 
 package org.signal.registration.analytics.twilio;
 
+import io.micronaut.context.annotation.Requires;
+import io.micronaut.context.env.Environment;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Singleton;
@@ -23,6 +25,7 @@ import reactor.core.scheduler.Schedulers;
  * Analyzes verification attempts from {@link TwilioVerifySender}.
  */
 @Singleton
+@Requires(notEnv = Environment.TEST)
 class TwilioVerifyAttemptAnalyzer extends AbstractAttemptAnalyzer {
 
   private final TwilioVerifyPriceEstimator twilioVerifyPriceEstimator;

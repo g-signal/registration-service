@@ -80,8 +80,8 @@ public class AttemptPendingAnalysisEventListener implements ApplicationEventList
           .setTimestampEpochMillis(registrationAttempt.getTimestampEpochMillis())
           .setAccountExistsWithE164(session.getSessionMetadata().getAccountExistsWithE164())
           .setVerified(attemptVerified)
-          .setClientMcc(session.getSessionMetadata().getMcc())
-          .setClientMnc(session.getSessionMetadata().getMnc())
+          .setLookupMcc(session.getSessionMetadata().getMcc())
+          .setLookupMnc(session.getSessionMetadata().getMnc())
           .build());
     }
 

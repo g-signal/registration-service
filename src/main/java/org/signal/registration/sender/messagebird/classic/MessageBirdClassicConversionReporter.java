@@ -16,7 +16,6 @@ import io.micronaut.scheduling.TaskExecutors;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.util.Optional;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.messagebird.MessageBirdClientConfiguration;
@@ -92,7 +91,6 @@ public class MessageBirdClassicConversionReporter implements ApplicationEventLis
         } catch (UnauthorizedException | GeneralException e) {
           logger.warn("Failed to post conversion", e);
           meterRegistry.counter(COUNTER_NAME, MetricsUtil.SUCCESS_TAG_NAME, String.valueOf(false)).increment();
-          throw new CompletionException(e);
         }
       }));
     }

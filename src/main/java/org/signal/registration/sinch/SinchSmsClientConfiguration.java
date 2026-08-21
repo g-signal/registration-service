@@ -10,5 +10,5 @@ import jakarta.validation.constraints.NotBlank;
 
 @Context
 @ConfigurationProperties("sinch.sms.client")
-public record SinchSmsClientConfiguration(@NotBlank String servicePlanId, @NotBlank String apiToken) {
+public record SinchSmsClientConfiguration(@NotBlank String servicePlanId, @NotBlank String apiToken, @NotBlank String smsRegion) {
 }

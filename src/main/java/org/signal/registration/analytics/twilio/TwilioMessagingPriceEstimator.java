@@ -7,12 +7,15 @@ package org.signal.registration.analytics.twilio;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.twilio.type.InboundSmsPrice;
+import io.micronaut.context.annotation.Requires;
+import io.micronaut.context.env.Environment;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.util.List;
 import org.signal.registration.analytics.AttemptPendingAnalysis;
 
 @Singleton
+@Requires(notEnv = Environment.TEST)
 class TwilioMessagingPriceEstimator extends AbstractTwilioSmsPriceEstimator {
 
   private final TwilioMessagingPriceEstimatorConfiguration configuration;

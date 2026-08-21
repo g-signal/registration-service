@@ -7,6 +7,7 @@ package org.signal.registration.analytics.gcp.pubsub;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micronaut.context.annotation.Requires;
 import io.micronaut.context.event.ApplicationEventListener;
 import io.micronaut.scheduling.TaskExecutors;
 import jakarta.inject.Named;
@@ -17,6 +18,7 @@ import java.time.Instant;
 import java.util.concurrent.Executor;
 
 import org.apache.commons.lang3.StringUtils;
+import org.signal.registration.Environments;
 import org.signal.registration.analytics.AttemptAnalyzedEvent;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.util.UUIDUtil;
@@ -28,6 +30,7 @@ import org.slf4j.LoggerFactory;
  * listener use a schema that is compatible with a BigQuery subscriber.
  */
 @Singleton
+@Requires(env = Environments.ANALYTICS)
 class GcpPubSubAttemptAnalyzedEventListener implements ApplicationEventListener<AttemptAnalyzedEvent> {
 
   private final AttemptAnalyzedPubSubClient pubSubClient;
@@ -95,12 +98,12 @@ class GcpPubSubAttemptAnalyzedEventListener implements ApplicationEventListener<
     event.attemptAnalysis().mcc().ifPresent(pubSubMessageBuilder::setSenderMcc);
     event.attemptAnalysis().mnc().ifPresent(pubSubMessageBuilder::setSenderMnc);
 
-    if (StringUtils.isNotBlank(event.attemptPendingAnalysis().getClientMcc())) {
-      pubSubMessageBuilder.setClientSimMcc(event.attemptPendingAnalysis().getClientMcc());
+    if (StringUtils.isNotBlank(event.attemptPendingAnalysis().getLookupMcc())) {
+      pubSubMessageBuilder.setLookupMcc(event.attemptPendingAnalysis().getLookupMcc());
     }
 
-    if (StringUtils.isNotBlank(event.attemptPendingAnalysis().getClientMnc())) {
-      pubSubMessageBuilder.setClientSimMnc(event.attemptPendingAnalysis().getClientMnc());
+    if (StringUtils.isNotBlank(event.attemptPendingAnalysis().getLookupMnc())) {
+      pubSubMessageBuilder.setLookupMnc(event.attemptPendingAnalysis().getLookupMnc());
     }
 
     return pubSubMessageBuilder.build();

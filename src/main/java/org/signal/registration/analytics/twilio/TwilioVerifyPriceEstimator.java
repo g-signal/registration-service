@@ -6,7 +6,9 @@
 package org.signal.registration.analytics.twilio;
 
 import com.twilio.type.InboundSmsPrice;
+import io.micronaut.context.annotation.Requires;
 import io.micronaut.context.annotation.Value;
+import io.micronaut.context.env.Environment;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.signal.registration.analytics.AttemptPendingAnalysis;
@@ -18,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Singleton
+@Requires(notEnv = Environment.TEST)
 class TwilioVerifyPriceEstimator extends AbstractTwilioSmsPriceEstimator {
 
   private final Money verifyFee;

@@ -11,9 +11,9 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.twilio.type.PhoneNumber;
 import java.io.UncheckedIOException;
 import java.util.Optional;
-import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,7 +39,7 @@ abstract class AbstractTwilioProvidedCodeSender implements VerificationCodeSende
   @Override
   public boolean checkVerificationCode(final String verificationCode, final byte[] senderData) {
     try {
-      return StringUtils.equals(verificationCode,
+      return Strings.equalsConstantTime(verificationCode,
           TwilioProvidedCodeSessionData.parseFrom(senderData).getVerificationCode());
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Failed to parse stored session data", e);

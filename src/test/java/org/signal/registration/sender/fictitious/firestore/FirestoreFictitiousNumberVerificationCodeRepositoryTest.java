@@ -38,7 +38,7 @@ class FirestoreFictitiousNumberVerificationCodeRepositoryTest {
   private static final Instant CURRENT_TIME = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
   private static final String FIRESTORE_EMULATOR_IMAGE_NAME =
-      "gcr.io/google.com/cloudsdktool/cloud-sdk:" + System.getProperty("firestore.emulator.version", "emulators");
+      "gcr.io/google.com/cloudsdktool/cloud-sdk:" + System.getProperty("gcloud.emulator.version", "emulators");
 
   @Container
   private static final FirestoreEmulatorContainer CONTAINER =

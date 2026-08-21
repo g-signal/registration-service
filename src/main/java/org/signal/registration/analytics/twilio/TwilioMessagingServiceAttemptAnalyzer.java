@@ -7,6 +7,8 @@ package org.signal.registration.analytics.twilio;
 
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.api.v2010.account.Message;
+import io.micronaut.context.annotation.Requires;
+import io.micronaut.context.env.Environment;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Named;
@@ -30,6 +32,7 @@ import reactor.core.scheduler.Schedulers;
  * Analyzes verification attempts from {@link TwilioMessagingServiceSmsSender}.
  */
 @Singleton
+@Requires(notEnv = Environment.TEST)
 class TwilioMessagingServiceAttemptAnalyzer extends AbstractAttemptAnalyzer {
 
   private final TwilioRestClient twilioRestClient;

@@ -10,7 +10,9 @@ import com.infobip.api.SmsApi;
 import com.infobip.model.SmsLog;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
+import io.micronaut.context.annotation.Requires;
 import io.micronaut.context.annotation.Value;
+import io.micronaut.context.env.Environment;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Singleton;
@@ -39,6 +41,7 @@ import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 @Singleton
+@Requires(notEnv = Environment.TEST)
 class InfobipSmsAttemptAnalyzer {
   private final AttemptPendingAnalysisRepository repository;
   private final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher;

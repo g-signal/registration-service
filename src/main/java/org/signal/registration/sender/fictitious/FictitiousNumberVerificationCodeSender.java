@@ -21,6 +21,7 @@ import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.VerificationCodeGenerator;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -107,7 +108,7 @@ public class FictitiousNumberVerificationCodeSender implements VerificationCodeS
       final String expectedVerificationCode =
           FictitiousNumberVerificationCodeSessionData.parseFrom(senderData).getVerificationCode();
 
-      return expectedVerificationCode.equals(verificationCode);
+      return Strings.equalsConstantTime(expectedVerificationCode, verificationCode);
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Failed to parse stored session data", e);
       throw new UncheckedIOException(e);

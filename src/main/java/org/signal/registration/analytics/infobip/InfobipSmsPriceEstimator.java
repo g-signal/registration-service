@@ -11,7 +11,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.analytics.AttemptPendingAnalysis;
 import org.signal.registration.analytics.Money;
 import org.signal.registration.analytics.PriceEstimator;
-import org.signal.registration.cli.bigtable.BigtableInfobipDefaultSmsPricesRepository;
+import org.signal.registration.analytics.infobip.bigtable.BigtableInfobipDefaultSmsPricesRepository;
 import javax.annotation.Nullable;
 import java.math.BigDecimal;
 import java.util.Currency;

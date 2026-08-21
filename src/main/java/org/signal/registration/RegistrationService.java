@@ -12,6 +12,7 @@ import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
+import io.micronaut.context.annotation.Requires;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.time.Clock;
@@ -36,6 +37,7 @@ import org.signal.registration.rpc.RegistrationSessionMetadata;
 import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.NoSenderAvailableException;
 import org.signal.registration.sender.SenderFraudBlockException;
 import org.signal.registration.sender.SenderRateLimitedRequestException;
 import org.signal.registration.sender.SenderRejectedRequestException;
@@ -58,6 +60,7 @@ import org.signal.registration.util.UUIDUtil;
  * and verification code sender selection.
  */
 @Singleton
+@Requires(notEnv = Environments.ANALYTICS)
 public class RegistrationService {
 
   private final SenderSelectionStrategy senderSelectionStrategy;
@@ -185,13 +188,14 @@ public class RegistrationService {
    * @throws RateLimitExceededException if the caller must wait before requesting another verification code
    * @throws SenderRejectedRequestException if the sender received but rejected the request to send a verification code
    * for any reason
+   * @throws NoSenderAvailableException if there are no available senders in the region for the specified transport
    */
   public RegistrationSession sendVerificationCode(final MessageTransport messageTransport,
       final UUID sessionId,
       @Nullable final String senderName,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType)
-      throws TransportNotAllowedException, SessionAlreadyVerifiedException, SessionNotFoundException, RateLimitExceededException, SenderRejectedRequestException {
+      throws TransportNotAllowedException, SessionAlreadyVerifiedException, SessionNotFoundException, RateLimitExceededException, SenderRejectedRequestException, NoSenderAvailableException {
 
     final RateLimiter<RegistrationSession> sessionRateLimiter = switch (messageTransport) {
       case SMS -> sendSmsVerificationCodePerSessionRateLimiter;
@@ -337,9 +341,9 @@ public class RegistrationService {
 
     final RegistrationSession session = sessionRepository.getSession(sessionId);
 
-    // If a connection was interrupted, a caller may repeat a verification request. Check to see if we already have a
-    // known verification code for this session and, if so, check the provided code against that code instead of making
-    // a call upstream.
+    // If a connection was interrupted, a caller may repeat a verification request. If a previous code was already
+    // verified, we can return the existing verified session without making another call to actually check the code
+    // (again).
     if (StringUtils.isNotBlank(session.getVerifiedCode())) {
       return session;
     }
@@ -400,7 +404,7 @@ public class RegistrationService {
 
     return sessionRepository.updateSession(UUIDUtil.uuidFromByteString(session.getId()), s -> {
       final RegistrationSession.Builder builder = s.toBuilder()
-          .setCheckCodeAttempts(session.getCheckCodeAttempts() + 1)
+          .setCheckCodeAttempts(s.getCheckCodeAttempts() + 1)
           .setLastCheckCodeAttemptEpochMillis(clock.millis());
 
       if (verifiedCode != null) {

@@ -8,6 +8,8 @@ package org.signal.registration.analytics.messagebird;
 import com.messagebird.MessageBirdClient;
 import com.messagebird.exceptions.MessageBirdException;
 import com.messagebird.objects.MessageResponse;
+import io.micronaut.context.annotation.Requires;
+import io.micronaut.context.env.Environment;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Named;
@@ -23,6 +25,7 @@ import reactor.core.scheduler.Scheduler;
  * Analyzes verification attempts from {@link MessageBirdVoiceSender}.
  */
 @Singleton
+@Requires(notEnv = Environment.TEST)
 class MessageBirdVoiceAttemptAnalyzer extends AbstractMessageBirdAttemptAnalyzer {
 
   private final MessageBirdClient messageBirdClient;

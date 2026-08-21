@@ -185,12 +185,12 @@ message SessionMetadata {
   bool account_exists_with_e164 = 1;
 
   /**
-   * The MCC as reported by the client.
+   * The MCC as reported by a number lookup service.
    */
   string mcc = 2;
 
   /**
-   * The MNC as reported by the client.
+   * The MNC as reported by a number lookup service.
    */
   string mnc = 3;
 }

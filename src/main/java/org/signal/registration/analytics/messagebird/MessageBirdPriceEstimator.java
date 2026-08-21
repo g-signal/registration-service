@@ -6,6 +6,8 @@
 package org.signal.registration.analytics.messagebird;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.micronaut.context.annotation.Requires;
+import io.micronaut.context.env.Environment;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Singleton;
 import org.apache.commons.lang3.StringUtils;
@@ -21,6 +23,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @Singleton
+@Requires(notEnv = Environment.TEST)
 class MessageBirdPriceEstimator implements PriceEstimator {
 
   private final MessageBirdSmsPriceProvider priceProvider;

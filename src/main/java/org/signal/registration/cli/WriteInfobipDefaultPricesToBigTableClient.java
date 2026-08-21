@@ -7,7 +7,7 @@ package org.signal.registration.cli;
 
 import io.micronaut.configuration.picocli.PicocliRunner;
 import jakarta.inject.Inject;
-import org.signal.registration.cli.bigtable.BigtableInfobipDefaultSmsPricesRepository;
+import org.signal.registration.analytics.infobip.bigtable.BigtableInfobipDefaultSmsPricesRepository;
 import picocli.CommandLine;
 import java.io.File;
 import java.io.FileReader;

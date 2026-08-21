@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import javax.annotation.Nullable;
-import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.ApiClientInstrumenter;
 import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
@@ -39,6 +38,7 @@ import org.signal.registration.sender.VerificationSmsBodyProvider;
 import org.signal.registration.sender.infobip.InfobipClassicSessionData;
 import org.signal.registration.sender.infobip.InfobipExceptions;
 import org.signal.registration.sender.infobip.InfobipSenderConfiguration;
+import org.signal.registration.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -195,7 +195,7 @@ public class InfobipSmsSender implements VerificationCodeSender {
   public boolean checkVerificationCode(final String verificationCode, final byte[] senderData) {
     try {
       final String storedVerificationCode = InfobipClassicSessionData.parseFrom(senderData).getVerificationCode();
-      return StringUtils.equals(verificationCode, storedVerificationCode);
+      return Strings.equalsConstantTime(verificationCode, storedVerificationCode);
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Failed to parse stored session data", e);
       throw new UncheckedIOException(e);

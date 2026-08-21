@@ -1,6 +1,7 @@
 package org.signal.registration.sender;
 
 import com.google.i18n.phonenumbers.Phonenumber;
+import org.signal.registration.util.Strings;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
@@ -56,6 +57,6 @@ public class TestVerificationCodeSender implements VerificationCodeSender {
 
   @Override
   public boolean checkVerificationCode(final String verificationCode, final byte[] senderData) {
-    return verificationCode.equals(new String(senderData, StandardCharsets.UTF_8));
+    return Strings.equalsConstantTime(verificationCode, new String(senderData, StandardCharsets.UTF_8));
   }
 }

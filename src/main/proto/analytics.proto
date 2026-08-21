@@ -8,6 +8,8 @@ import "registration_service.proto";
 
 message AttemptPendingAnalysis {
 
+  reserved 11, 12;
+
   /**
    * The unique identifier for the session in which this attempt took place.
    */
@@ -65,12 +67,12 @@ message AttemptPendingAnalysis {
   bool verified = 10;
 
   /**
-   * The MCC as reported by the client.
+   * The MCC as reported by a number lookup service.
    */
-  string client_mcc = 11;
+  string lookup_mcc = 13;
 
   /**
-   * The MNC as reported by the client.
+   * The MNC as reported by a number lookup service.
    */
-  string client_mnc = 12;
+  string lookup_mnc = 14;
 }

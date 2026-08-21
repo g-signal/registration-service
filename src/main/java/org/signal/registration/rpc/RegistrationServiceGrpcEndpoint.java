@@ -15,7 +15,6 @@ import java.io.UncheckedIOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.AttemptExpiredException;
@@ -25,6 +24,7 @@ import org.signal.registration.SessionAlreadyVerifiedException;
 import org.signal.registration.TransportNotAllowedException;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.ClientType;
+import org.signal.registration.sender.NoSenderAvailableException;
 import org.signal.registration.sender.SenderFraudBlockException;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.session.RegistrationSession;
@@ -47,11 +47,11 @@ public class RegistrationServiceGrpcEndpoint extends SimpleRegistrationServiceGr
   }
 
   @Override
-  protected Optional<Status> mapExceptionToStatus(final Throwable throwable) {
+  protected Throwable mapException(final Throwable throwable) {
     return switch (throwable) {
-      case IllegalArgumentException ignored -> Optional.of(Status.INVALID_ARGUMENT);
-      case UncheckedIOException ignored -> Optional.of(Status.INTERNAL);
-      default -> super.mapExceptionToStatus(throwable);
+      case IllegalArgumentException ignored -> Status.INVALID_ARGUMENT.asException();
+      case UncheckedIOException ignored -> Status.INTERNAL.asException();
+      default -> super.mapException(throwable);
     };
   }
 
@@ -188,6 +188,13 @@ public class RegistrationServiceGrpcEndpoint extends SimpleRegistrationServiceGr
               .setMayRetry(false)
               .build())
           .build();
+    } catch (final NoSenderAvailableException e) {
+      return SendVerificationCodeResponse.newBuilder()
+          .setError(SendVerificationCodeError.newBuilder()
+              .setErrorType(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_NO_SENDER_AVAILABLE)
+              .setMayRetry(false)
+              .build()
+          ).build();
     } catch (final RuntimeException e) {
       if (!(e instanceof IllegalArgumentException)) {
         logger.warn("Failed to send verification code", e);
