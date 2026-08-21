@@ -67,3 +67,11 @@ twilio:
 verification:
   sms:
     android-app-hash: MyAppHash
+
+otel:
+  logs:
+    exporter: otlp
+  exporter:
+    otlp:
+      protocol: http/protobuf
+      endpoint: http://localhost:4318

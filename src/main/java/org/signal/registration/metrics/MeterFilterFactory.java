@@ -19,7 +19,7 @@ public class MeterFilterFactory {
 
   private static final DistributionStatisticConfig DEFAULT_DISTRIBUTION_STATISTIC_CONFIG =
       DistributionStatisticConfig.builder()
-          .percentiles(.5, .95, .99, .999)
+          .percentilesHistogram(true)
           .build();
 
   @Bean

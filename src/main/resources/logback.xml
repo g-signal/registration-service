@@ -10,8 +10,27 @@
     </encoder>
   </appender>
 
+  <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender"/>
+
+  <appender name="JSON_TCP" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+    <destination>intake.logs.datadoghq.com:10516</destination>
+    <keepAliveDuration>20 seconds</keepAliveDuration>
+
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+      <prefix class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+        <layout class="ch.qos.logback.classic.PatternLayout">
+          <pattern>${MICRONAUT_METRICS_EXPORT_DATADOG_API_KEY} %mdc{keyThatDoesNotExist}</pattern>
+        </layout>
+      </prefix>
+
+      <customFields>{"host":"${instanceId}","service":"registration","ddsource":"java","ddtags":"env:${MICRONAUT_METRICS_TAGS_ENV},version:${MICRONAUT_METRICS_TAGS_VERSION}"}</customFields>
+    </encoder>
+    <ssl/>
+  </appender>
 
   <root level="info">
     <appender-ref ref="STDOUT"/>
+    <appender-ref ref="JSON_TCP"/>
+    <appender-ref ref="OTEL"/>
   </root>
 </configuration>
